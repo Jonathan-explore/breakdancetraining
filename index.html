@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#03030a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Airflare Dashboard | Plan de Entrenamiento Diario</title>
+  <meta name="description" content="Panel de entrenamiento interactivo para el control y seguimiento diario de la rutina de Airflares. Incluye temporizadores, alertas por voz y nutrición deportiva.">
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <!-- Icons -->
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Contenedor Principal (Layout de Panel de Control) -->
+  <div class="dashboard-wrapper">
+    
+    <!-- BARRA LATERAL (Navegación por Días) -->
+    <aside class="sidebar" id="sidebar-nav">
+      <div class="brand-logo">
+        <span class="logo-accent">AIRFLARE</span>
+        <span class="logo-sub">DASHBOARD</span>
+      </div>
+      
+      <nav class="days-nav">
+        <button class="tab-btn active" data-day="lunes" id="tab-lunes">
+          <span class="day-short">LU</span>
+          <span class="day-full">Lunes</span>
+        </button>
+        <button class="tab-btn" data-day="martes" id="tab-martes">
+          <span class="day-short">MA</span>
+          <span class="day-full">Martes</span>
+        </button>
+        <button class="tab-btn" data-day="miercoles" id="tab-miercoles">
+          <span class="day-short">MI</span>
+          <span class="day-full">Miércoles</span>
+        </button>
+        <button class="tab-btn" data-day="jueves" id="tab-jueves">
+          <span class="day-short">JU</span>
+          <span class="day-full">Jueves</span>
+        </button>
+        <button class="tab-btn" data-day="viernes" id="tab-viernes">
+          <span class="day-short">VI</span>
+          <span class="day-full">Viernes</span>
+        </button>
+        <button class="tab-btn" data-day="sabado" id="tab-sabado">
+          <span class="day-short">SÁ</span>
+          <span class="day-full">Sábado</span>
+        </button>
+        <button class="tab-btn" data-day="domingo" id="tab-domingo">
+          <span class="day-short">DO</span>
+          <span class="day-full">Domingo</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-principles">
+        <p class="principles-title">Principios Rectores</p>
+        <div class="principle-item">
+          <span class="principle-number">01 — Calidad</span>
+          <span class="principle-text">A 83 kg, cada rep sucia es un patrón malo grabado. Si la calidad cae dos veces seguidas, PARAR.</span>
+        </div>
+        <div class="principle-item">
+          <span class="principle-number">02 — Protocolos</span>
+          <span class="principle-text">Muñecas e ingle SIEMPRE. Sin excepción. Es el seguro que mantiene tu cuerpo entero.</span>
+        </div>
+        <div class="principle-item">
+          <span class="principle-number">03 — Descanso</span>
+          <span class="principle-text">Sáb y Dom no son días perdidos: son los días en que el cuerpo construye lo que entrenaste.</span>
+        </div>
+        <div class="principle-item">
+          <span class="principle-number">04 — Brújula</span>
+          <span class="principle-text">Si el contacto del brazo suena, no hubo rebote. El aterrizaje silencioso es la llave del 2º Airflare.</span>
+        </div>
+        <div class="principle-item">
+          <span class="principle-number">05 — Una corrección</span>
+          <span class="principle-text">Graba, revisa, elige UNA sola corrección por sesión. El sistema nervioso procesa 1-2 a la vez.</span>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <span class="weight-badge">B-Boy · 83 kg</span>
+        <div class="sidebar-actions">
+          <button class="btn-action-sm" id="btn-install" style="display:none" title="Instalar como app">📲 Instalar App</button>
+          <button class="btn-action-sm" id="btn-export-open" title="Guardar y exportar datos">💾 Datos</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- PANEL DE EXPORTAR / IMPORTAR DATOS -->
+    <div class="data-panel-overlay" id="data-panel-overlay" style="display:none" onclick="closeDataPanel()"></div>
+    <div class="data-panel glass-card" id="data-panel" style="display:none">
+      <div class="data-panel-header">
+        <h3>Guardar y Exportar</h3>
+        <button class="btn-close-panel" onclick="closeDataPanel()">✕</button>
+      </div>
+      <div class="data-panel-body">
+        <div class="data-stat-row" id="data-stats"></div>
+        <button class="btn-data btn-data-export" onclick="exportData()">
+          <span class="btn-data-icon">⬇️</span>
+          <div class="btn-data-text">
+            <strong>Exportar Progreso</strong>
+            <span>Descarga un .json con todos tus datos</span>
+          </div>
+        </button>
+        <label class="btn-data btn-data-import" title="Selecciona un archivo .json exportado">
+          <span class="btn-data-icon">⬆️</span>
+          <div class="btn-data-text">
+            <strong>Importar Progreso</strong>
+            <span>Restaura desde un archivo .json</span>
+          </div>
+          <input type="file" accept=".json" id="import-file-input" style="display:none" onchange="importData(this.files[0])">
+        </label>
+        <button class="btn-data btn-data-reset" onclick="confirmResetData()">
+          <span class="btn-data-icon">🗑️</span>
+          <div class="btn-data-text">
+            <strong>Borrar Todo</strong>
+            <span>Elimina todo el progreso guardado</span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- TOAST (notificaciones) -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- CONTENIDO CENTRAL DE LA APLICACIÓN -->
+    <main class="main-content">
+      
+      <!-- CABECERA SUPERIOR (Información del Día y Ajustes de Audio/Progreso) -->
+      <header class="dashboard-header">
+        <div class="header-day-info">
+          <h1 id="day-title">Lunes</h1>
+          <h2 id="day-subtitle" class="text-glow">Power principal (Airflare técnico)</h2>
+          <p id="day-desc">Día clave de técnica de Airflare con foco en el aterrizaje silencioso y el rebote elástico.</p>
+        </div>
+
+        <div class="header-controls">
+          <!-- Control de Alertas Sonoras y Voz -->
+          <div class="audio-controls-panel">
+            <label class="switch-container" title="Activa pitidos de aviso al finalizar el tiempo">
+              <input type="checkbox" id="toggle-sound" checked>
+              <span class="switch-slider"></span>
+              <span class="switch-label">🔊 Pitidos</span>
+            </label>
+            <label class="switch-container" title="Activa lectura de voz del nombre de cada ejercicio">
+              <input type="checkbox" id="toggle-voice" checked>
+              <span class="switch-slider"></span>
+              <span class="switch-label">🗣️ Voz</span>
+            </label>
+          </div>
+
+          <!-- Barra de Progreso del Día -->
+          <div class="progress-container">
+            <div class="progress-header">
+              <span id="progress-text">0% Completado</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="progress-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Panel de Métricas Rápidas del Día -->
+      <section class="day-metrics-bar">
+        <div class="metric-card">
+          <span class="metric-label">Tiempo Estimado</span>
+          <span class="metric-value" id="day-duration">1h 50 min – 2h 00 min</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Sistema Dominante</span>
+          <span class="metric-value text-accent" id="day-system">Neuromuscular</span>
+        </div>
+      </section>
+
+      <!-- REJILLA DE TRABAJO (Dos Columnas: Temporizador/Detalles vs Lista de Ejercicios) -->
+      <div class="dashboard-grid">
+        
+        <!-- COLUMNA IZQUIERDA: Temporizador Activo e Información de Ejecución -->
+        <div class="grid-left-col">
+          
+          <!-- TARJETA DEL TEMPORIZADOR INTERACTIVO -->
+          <section class="timer-section glass-card" id="interactive-timer-card">
+
+            <!-- Cabecera: nombre del ejercicio + contador de paso -->
+            <div class="timer-exercise-header">
+              <div class="timer-header-top">
+                <span class="pulse-indicator" id="pulse-dot"></span>
+                <span class="timer-badge" id="timer-badge-label">SECUENCIA AUTO</span>
+                <span class="step-counter-badge" id="step-counter-badge"></span>
+              </div>
+              <h3 id="timer-ex-name">Selecciona un ejercicio</h3>
+              <p id="timer-ex-target" class="text-secondary">Pulsa ▶ en cualquier paso para iniciar la secuencia automática</p>
+            </div>
+
+            <!-- Chip de fase -->
+            <div class="timer-phase-row">
+              <span class="phase-chip" id="phase-chip"></span>
+            </div>
+
+            <!-- Texto de instrucción del paso actual (permanece visible) -->
+            <div class="timer-instruction-area" id="timer-instruction-area" style="display:none">
+              <p class="timer-step-instruction" id="timer-step-instruction"></p>
+            </div>
+
+            <!-- Área de visualización principal -->
+            <div class="timer-display-wrapper">
+
+              <!-- Cuenta regresiva de preparación 5-4-3-2-1 -->
+              <div class="prep-countdown-wrap" id="prep-wrap" style="display:none">
+                <div class="prep-label-text">PREPÁRATE</div>
+                <div class="prep-big-number" id="prep-number">5</div>
+              </div>
+
+              <!-- Flash GO! -->
+              <div class="go-flash" id="go-flash" style="display:none">GO!</div>
+
+              <!-- Temporizador MM:SS normal -->
+              <div class="timer-display" id="timer-countdown">--:--</div>
+
+              <!-- Info de series/reps (pasos de tipo reps) -->
+              <div class="reps-info-display" id="reps-info-display" style="display:none"></div>
+
+              <!-- Transición al siguiente paso -->
+              <div class="transition-wrap" id="transition-wrap" style="display:none">
+                <div class="transition-header">SIGUIENTE →</div>
+                <p class="transition-next-text" id="transition-next-text"></p>
+                <div class="transition-number" id="transition-number">5</div>
+              </div>
+
+            </div>
+
+            <!-- Barra de progreso del paso -->
+            <div class="step-progress-bar-wrap">
+              <div class="step-progress-bar-fill" id="step-progress-fill" style="width:0%"></div>
+            </div>
+
+            <!-- Controles principales -->
+            <div class="timer-controls">
+              <button class="btn-timer btn-primary" id="btn-play">▶ Iniciar</button>
+              <button class="btn-timer btn-secondary btn-icon-only" id="btn-reset" title="Detener y reiniciar">↻</button>
+              <button class="btn-timer btn-secondary" id="btn-next">⏭ Saltar</button>
+            </div>
+
+            <!-- Botón LISTO para pasos de series/reps -->
+            <div class="reps-done-section" id="reps-done-section" style="display:none">
+              <button class="btn-reps-done" id="btn-reps-done" onclick="markRepsDoneAndAdvance()">
+                ✓ LISTO — SIGUIENTE PASO
+              </button>
+            </div>
+
+            <!-- Descansos rápidos manuales -->
+            <div class="rest-buttons">
+              <span class="rest-divider-label">DESCANSO:</span>
+              <button class="btn-rest" id="btn-rest-90"  onclick="startRestTimer(90)">90 seg</button>
+              <button class="btn-rest" id="btn-rest-120" onclick="startRestTimer(120)">2 min</button>
+              <button class="btn-rest" id="btn-rest-180" onclick="startRestTimer(180)">3 min</button>
+            </div>
+
+          </section>
+
+          <!-- DETALLES TÉCNICOS COMPLETOS DEL EJERCICIO SELECCIONADO -->
+          <section class="exercise-details-section">
+            
+            <div class="detail-card glass-card">
+              <h3 class="detail-title border-accent">Técnica de Ejecución</h3>
+              <div class="detail-body" id="detail-tech">
+                <p>Selecciona un ejercicio para ver sus detalles técnicos.</p>
+              </div>
+            </div>
+
+            <div class="detail-card glass-card">
+              <h3 class="detail-title border-accent-secondary">Patrón Respiratorio</h3>
+              <div class="detail-body" id="detail-breath">
+                <p>Información de respiración.</p>
+              </div>
+            </div>
+
+            <div class="detail-card glass-card border-danger-glow">
+              <h3 class="detail-title text-danger">Errores que matan el ejercicio</h3>
+              <ul class="detail-list danger-list" id="detail-errors">
+                <li>Selecciona un ejercicio para ver los errores comunes.</li>
+              </ul>
+            </div>
+
+            <div class="detail-card glass-card border-success-glow">
+              <h3 class="detail-title text-success">Tips de nivel élite</h3>
+              <ul class="detail-list success-list" id="detail-tips">
+                <li>Selecciona un ejercicio para ver los consejos avanzados.</li>
+              </ul>
+            </div>
+
+            <div class="detail-card glass-card">
+              <h3 class="detail-title text-muted">Alternativas / Regresiones</h3>
+              <div class="detail-body" id="detail-alt">
+                <p>Regresiones disponibles.</p>
+              </div>
+            </div>
+
+          </section>
+
+        </div>
+
+        <!-- COLUMNA DERECHA: Listado del Cronograma y Nutrición del Día -->
+        <div class="grid-right-col">
+          
+          <!-- CRONOGRAMA DIARIO (Checklist interactiva) -->
+          <section class="timeline-section glass-card">
+            <h3 class="section-title">Cronograma del Día</h3>
+            <div class="timeline-list" id="timeline-container">
+              <!-- Cargado dinámicamente desde app.js -->
+            </div>
+          </section>
+
+          <!-- NUTRICIÓN DEL DÍA -->
+          <section class="nutrition-section glass-card">
+            <h3 class="section-title">Plan Nutricional de la Sesión</h3>
+            
+            <div class="nutrition-grid">
+              
+              <div class="nutrition-item">
+                <div class="nutrition-header">
+                  <span class="nut-icon">🍳</span>
+                  <span class="nut-label">PRE-ENTRENAMIENTO (90m antes)</span>
+                </div>
+                <p class="nutrition-text" id="nut-pre">Cargando...</p>
+              </div>
+
+              <div class="nutrition-item">
+                <div class="nutrition-header">
+                  <span class="nut-icon">💧</span>
+                  <span class="nut-label">INTRA-ENTRENAMIENTO</span>
+                </div>
+                <p class="nutrition-text" id="nut-intra">Cargando...</p>
+              </div>
+
+              <div class="nutrition-item">
+                <div class="nutrition-header">
+                  <span class="nut-icon">🍌</span>
+                  <span class="nut-label">POST-ENTRENAMIENTO (45m post)</span>
+                </div>
+                <p class="nutrition-text" id="nut-post">Cargando...</p>
+              </div>
+
+              <div class="nutrition-item">
+                <div class="nutrition-header">
+                  <span class="nut-icon">🐟</span>
+                  <span class="nut-label">CENA (3-4h después)</span>
+                </div>
+                <p class="nutrition-text" id="nut-dinner">Cargando...</p>
+              </div>
+
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Script Link -->
+  <script src="app.js"></script>
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('[PWA] SW registrado:', reg.scope))
+          .catch(err => console.warn('[PWA] SW error:', err));
+      });
+    }
+
+    // Botón de instalación (Add to Home Screen)
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn = document.getElementById('btn-install');
+      if (btn) btn.style.display = 'flex';
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      const btn = document.getElementById('btn-install');
+      if (btn) btn.style.display = 'none';
+      if (typeof showToast === 'function') showToast('¡App instalada correctamente! 🎉');
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('btn-install');
+      if (btn) {
+        btn.addEventListener('click', async () => {
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') showToast('Instalando app…');
+          deferredPrompt = null;
+          btn.style.display = 'none';
+        });
+      }
+    });
+  </script>
+</body>
+</html>

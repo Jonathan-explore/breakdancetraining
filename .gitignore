@@ -1,0 +1,12 @@
+# Generated files
+generate-icons.ps1
+pdf_content.txt
+Plan_Airflare_Detallado_Diario.docx.pdf
+
+# Editor
+.claude/
+*.local
+
+# OS
+Thumbs.db
+.DS_Store
