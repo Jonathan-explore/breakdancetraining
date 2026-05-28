@@ -96,37 +96,71 @@
       </div>
     </aside>
 
-    <!-- PANEL DE EXPORTAR / IMPORTAR DATOS -->
+    <!-- PANEL DE SESIÓN, NOTAS Y EXPORTAR -->
     <div class="data-panel-overlay" id="data-panel-overlay" style="display:none" onclick="closeDataPanel()"></div>
     <div class="data-panel glass-card" id="data-panel" style="display:none">
       <div class="data-panel-header">
-        <h3>Guardar y Exportar</h3>
+        <h3>Sesión y Progreso</h3>
         <button class="btn-close-panel" onclick="closeDataPanel()">✕</button>
       </div>
       <div class="data-panel-body">
+
+        <!-- Notas del día -->
+        <div class="notes-section">
+          <div class="notes-label" id="notes-day-label">Notas del día</div>
+          <textarea class="notes-textarea" id="day-notes-input" rows="3"
+            placeholder="¿Cómo fue el entrenamiento?"></textarea>
+        </div>
+
+        <!-- Guardar sesión -->
+        <button class="btn-data btn-save-session" onclick="saveSession()">
+          <span class="btn-data-icon">💾</span>
+          <div class="btn-data-text">
+            <strong>Guardar esta sesión</strong>
+            <span>Registra el progreso y tus notas de hoy</span>
+          </div>
+        </button>
+
+        <!-- Estadísticas -->
         <div class="data-stat-row" id="data-stats"></div>
+
+        <!-- Exportar CSV -->
+        <button class="btn-data btn-data-csv" onclick="exportCSV()">
+          <span class="btn-data-icon">📊</span>
+          <div class="btn-data-text">
+            <strong>Exportar CSV / Excel</strong>
+            <span>Tabla de rendimiento para Google Sheets o Excel</span>
+          </div>
+        </button>
+
+        <!-- Exportar JSON backup -->
         <button class="btn-data btn-data-export" onclick="exportData()">
           <span class="btn-data-icon">⬇️</span>
           <div class="btn-data-text">
-            <strong>Exportar Progreso</strong>
-            <span>Descarga un .json con todos tus datos</span>
+            <strong>Backup completo (JSON)</strong>
+            <span>Incluye historial, notas y preferencias</span>
           </div>
         </button>
+
+        <!-- Importar -->
         <label class="btn-data btn-data-import" title="Selecciona un archivo .json exportado">
           <span class="btn-data-icon">⬆️</span>
           <div class="btn-data-text">
-            <strong>Importar Progreso</strong>
-            <span>Restaura desde un archivo .json</span>
+            <strong>Restaurar backup</strong>
+            <span>Importa desde un archivo .json</span>
           </div>
           <input type="file" accept=".json" id="import-file-input" style="display:none" onchange="importData(this.files[0])">
         </label>
+
+        <!-- Borrar -->
         <button class="btn-data btn-data-reset" onclick="confirmResetData()">
           <span class="btn-data-icon">🗑️</span>
           <div class="btn-data-text">
             <strong>Borrar Todo</strong>
-            <span>Elimina todo el progreso guardado</span>
+            <span>Elimina progreso, notas e historial</span>
           </div>
         </button>
+
       </div>
     </div>
 

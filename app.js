@@ -1211,6 +1211,12 @@ let completedSteps = JSON.parse(localStorage.getItem('airflare_completed_steps_v
 // Colapso de ejercicios: { "lunes_0": false, "lunes_1": true, ... } (true = colapsado)
 let collapsedState = JSON.parse(localStorage.getItem('airflare_collapsed_v2')) || {};
 
+// Notas por día: { "lunes": "texto libre...", "martes": "..." }
+let dayNotes = JSON.parse(localStorage.getItem('airflare_notes_v1')) || {};
+
+// Historial de sesiones guardadas: [{ id, date, time, dayKey, notes, stats... }, ...]
+let sessionHistory = JSON.parse(localStorage.getItem('airflare_history_v1')) || [];
+
 // =============================================================================
 // INICIALIZACIÓN
 // =============================================================================
@@ -2263,12 +2269,14 @@ function playDoneSound() {
 // EXPORTAR / IMPORTAR / BORRAR DATOS
 // =============================================================================
 function openDataPanel() {
-  // Actualizar estadísticas
+  const dayKey = currentDayKey;
+  const dayData = ROUTINE_DATA[dayKey];
+
+  // Estadísticas globales de la semana
   const allDays = Object.keys(ROUTINE_DATA);
   let totalSteps = 0, doneSteps = 0;
   allDays.forEach(d => {
-    const exs = ROUTINE_DATA[d].exercises;
-    exs.forEach(ex => ex.steps.forEach(s => {
+    ROUTINE_DATA[d].exercises.forEach(ex => ex.steps.forEach(s => {
       if (s.type !== 'rest') {
         totalSteps++;
         if (completedSteps[d] && completedSteps[d].includes(s.id)) doneSteps++;
@@ -2276,11 +2284,22 @@ function openDataPanel() {
     }));
   });
   const pct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
+
   document.getElementById('data-stats').innerHTML = `
     <div class="data-stat"><span class="data-stat-num">${doneSteps}</span><span class="data-stat-lbl">pasos hechos</span></div>
-    <div class="data-stat"><span class="data-stat-num">${totalSteps}</span><span class="data-stat-lbl">pasos totales</span></div>
-    <div class="data-stat"><span class="data-stat-num">${pct}%</span><span class="data-stat-lbl">semana completa</span></div>
+    <div class="data-stat"><span class="data-stat-num">${pct}%</span><span class="data-stat-lbl">semana</span></div>
+    <div class="data-stat"><span class="data-stat-num">${sessionHistory.length}</span><span class="data-stat-lbl">sesiones</span></div>
   `;
+
+  // Notas del día actual
+  const labelEl = document.getElementById('notes-day-label');
+  if (labelEl) labelEl.textContent = `Notas — ${dayData.title}`;
+  const notesEl = document.getElementById('day-notes-input');
+  if (notesEl) {
+    notesEl.value = dayNotes[dayKey] || '';
+    notesEl.placeholder = `¿Cómo fue el entrenamiento de ${dayData.title}? Sensaciones, PRs, ajustes...`;
+  }
+
   document.getElementById('data-panel-overlay').style.display = 'block';
   document.getElementById('data-panel').style.display = 'flex';
 }
@@ -2292,11 +2311,13 @@ function closeDataPanel() {
 
 function exportData() {
   const payload = {
-    version: 2,
+    version: 3,
     exportDate: new Date().toISOString(),
     app: 'Airflare Dashboard',
     completedSteps,
     collapsedState,
+    notes: dayNotes,
+    sessions: sessionHistory,
     preferences: {
       sound: document.getElementById('toggle-sound')?.checked ?? true,
       voice: document.getElementById('toggle-voice')?.checked ?? false
@@ -2308,12 +2329,148 @@ function exportData() {
   const a    = document.createElement('a');
   const date = new Date().toISOString().split('T')[0];
   a.href     = url;
-  a.download = `airflare-progreso-${date}.json`;
+  a.download = `airflare-backup-${date}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('Progreso exportado correctamente ✓');
+  showToast('Backup exportado correctamente ✓');
+}
+
+function saveSession() {
+  const dayKey = currentDayKey;
+  const dayData = ROUTINE_DATA[dayKey];
+  const completedIds = completedSteps[dayKey] || [];
+  const notes = dayNotes[dayKey] || '';
+
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = now.toTimeString().slice(0, 5);
+
+  let timerSecDone = 0, timerSecTotal = 0;
+  const exercisesDetail = dayData.exercises.map(ex => {
+    const checkable = ex.steps.filter(s => s.type !== 'rest');
+    const done = checkable.filter(s => completedIds.includes(s.id)).length;
+    const timerDone = ex.steps
+      .filter(s => s.type === 'timer' && completedIds.includes(s.id))
+      .reduce((acc, s) => acc + s.duration, 0);
+    const timerTotal = ex.steps
+      .filter(s => s.type === 'timer')
+      .reduce((acc, s) => acc + s.duration, 0);
+    timerSecDone  += timerDone;
+    timerSecTotal += timerTotal;
+    return {
+      name: ex.name,
+      block: ex.block,
+      stepsCompleted: done,
+      stepsTotal: checkable.length,
+      pct: checkable.length > 0 ? Math.round(done / checkable.length * 100) : 0,
+      timerMin: Math.round(timerDone / 60),
+      steps: ex.steps.map(s => ({
+        label: s.label,
+        type: s.type,
+        ...(s.type === 'timer' && { duration: s.duration }),
+        ...(s.type === 'reps'  && { reps: s.reps }),
+        ...(s.type !== 'rest'  && { completed: completedIds.includes(s.id) })
+      }))
+    };
+  });
+
+  const allCheckable = dayData.exercises.flatMap(ex => ex.steps.filter(s => s.type !== 'rest'));
+  const totalDone    = allCheckable.filter(s => completedIds.includes(s.id)).length;
+
+  const session = {
+    id: `${dateStr}_${dayKey}_${Date.now()}`,
+    date: dateStr,
+    time: timeStr,
+    dayKey,
+    dayTitle: dayData.title,
+    daySubtitle: dayData.subtitle,
+    notes,
+    stats: {
+      stepsCompleted: totalDone,
+      stepsTotal: allCheckable.length,
+      completionPct: allCheckable.length > 0 ? Math.round(totalDone / allCheckable.length * 100) : 0,
+      timerMinDone: Math.round(timerSecDone / 60),
+      timerMinTotal: Math.round(timerSecTotal / 60),
+      exercises: exercisesDetail
+    }
+  };
+
+  sessionHistory.push(session);
+  try {
+    localStorage.setItem('airflare_history_v1', JSON.stringify(sessionHistory));
+    showToast(`Sesión de ${dayData.title} guardada ✓`);
+  } catch (e) {
+    sessionHistory.pop();
+    showToast('Error: almacenamiento lleno. Exporta y borra el historial.', 'error');
+    return;
+  }
+  openDataPanel();
+}
+
+function exportCSV() {
+  if (sessionHistory.length === 0) {
+    showToast('Guarda al menos una sesión primero', 'error');
+    return;
+  }
+
+  const header = [
+    'Fecha', 'Hora', 'Día', 'Tipo de Entrenamiento',
+    '% Día Completo', 'Tiempo Cronómetro (min)',
+    'Ejercicio', 'Bloque',
+    'Pasos Hechos', 'Pasos Total', '% Ejercicio', 'Tiempo Ejercicio (min)',
+    'Notas del Día'
+  ];
+
+  const rows = [header.map(escapeCSV).join(',')];
+
+  sessionHistory.forEach(session => {
+    const baseFields = [
+      session.date,
+      session.time,
+      session.dayTitle,
+      escapeCSV(session.daySubtitle || ''),
+      session.stats.completionPct + '%',
+      session.stats.timerMinDone
+    ];
+    session.stats.exercises.forEach(ex => {
+      const row = [
+        ...baseFields,
+        escapeCSV(ex.name),
+        escapeCSV(ex.block || ''),
+        ex.stepsCompleted,
+        ex.stepsTotal,
+        ex.pct + '%',
+        ex.timerMin,
+        escapeCSV(session.notes || '')
+      ];
+      rows.push(row.join(','));
+    });
+  });
+
+  // BOM UTF-8 para compatibilidad con Excel en Windows
+  const csv  = '﻿' + rows.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().split('T')[0];
+  a.href     = url;
+  a.download = `airflare-historial-${date}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('CSV exportado — ábrelo en Excel o Sheets ✓');
+}
+
+function escapeCSV(val) {
+  if (val === null || val === undefined) return '';
+  const str = String(val);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
 }
 
 function importData(file) {
@@ -2322,7 +2479,7 @@ function importData(file) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      if (!data.completedSteps && !data.collapsedState) throw new Error('Formato inválido');
+      if (!data.completedSteps && !data.collapsedState && !data.sessions) throw new Error('Formato inválido');
 
       if (data.completedSteps) {
         completedSteps = data.completedSteps;
@@ -2331,6 +2488,14 @@ function importData(file) {
       if (data.collapsedState) {
         collapsedState = data.collapsedState;
         localStorage.setItem('airflare_collapsed_v2', JSON.stringify(collapsedState));
+      }
+      if (data.notes) {
+        dayNotes = data.notes;
+        localStorage.setItem('airflare_notes_v1', JSON.stringify(dayNotes));
+      }
+      if (Array.isArray(data.sessions)) {
+        sessionHistory = data.sessions;
+        localStorage.setItem('airflare_history_v1', JSON.stringify(sessionHistory));
       }
       if (data.preferences) {
         if (data.preferences.sound !== undefined) {
@@ -2342,27 +2507,31 @@ function importData(file) {
           localStorage.setItem('pref_voice', data.preferences.voice);
         }
       }
-      loadDay(currentDayKey);
+      renderDay(currentDayKey);
       closeDataPanel();
-      showToast('Datos importados correctamente ✓');
+      const sess = (data.sessions || []).length;
+      showToast(`Importado correctamente${sess > 0 ? ` · ${sess} sesiones` : ''} ✓`);
     } catch (err) {
       showToast('Error: archivo inválido o corrupto', 'error');
     }
-    // Reset input so the same file can be selected again
     document.getElementById('import-file-input').value = '';
   };
   reader.readAsText(file);
 }
 
 function confirmResetData() {
-  if (!confirm('¿Borrar TODOS los datos de progreso? Esta acción no se puede deshacer.')) return;
-  completedSteps = {};
-  collapsedState = {};
+  if (!confirm('¿Borrar TODOS los datos de progreso, notas e historial? Esta acción no se puede deshacer.')) return;
+  completedSteps  = {};
+  collapsedState  = {};
+  dayNotes        = {};
+  sessionHistory  = [];
   localStorage.removeItem('airflare_completed_steps_v2');
   localStorage.removeItem('airflare_collapsed_v2');
-  loadDay(currentDayKey);
+  localStorage.removeItem('airflare_notes_v1');
+  localStorage.removeItem('airflare_history_v1');
+  renderDay(currentDayKey);
   closeDataPanel();
-  showToast('Datos borrados');
+  showToast('Todos los datos borrados');
 }
 
 // =============================================================================
@@ -2382,10 +2551,21 @@ function showToast(message, type = 'success') {
   }, 3000);
 }
 
-// Inicializar botón de apertura del panel
+// Inicializar panel de datos
 window.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('btn-export-open');
   if (btn) btn.addEventListener('click', openDataPanel);
+
+  // Auto-guardar notas mientras el usuario escribe
+  const notesInput = document.getElementById('day-notes-input');
+  if (notesInput) {
+    notesInput.addEventListener('input', () => {
+      dayNotes[currentDayKey] = notesInput.value;
+      try {
+        localStorage.setItem('airflare_notes_v1', JSON.stringify(dayNotes));
+      } catch (e) { /* cuota llena — nota queda en memoria hasta exportar */ }
+    });
+  }
 });
 
 // Compatibilidad — mantener para no romper referencias externas
