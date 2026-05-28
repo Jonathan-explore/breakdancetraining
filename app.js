@@ -1933,7 +1933,7 @@ function autoAdvanceToNext(isSkip) {
       runTransitionPhase(autoExIdx, nextStepIdx);
     }
   } else {
-    // Fin del ejercicio — no avanzamos automáticamente al siguiente grupo
+    // Fin del ejercicio
     autoMode = false;
     currentPhase = 'done';
     showPhaseChip('✓ EJERCICIO COMPLETO', 'chip-done');
@@ -1943,14 +1943,31 @@ function autoAdvanceToNext(isSkip) {
     updateStepProgressBar(0, 1);
     showInstructionArea(false);
 
-    // Preseleccionar el siguiente ejercicio si existe
     if (autoExIdx + 1 < data.exercises.length) {
       const nextExIdx = autoExIdx + 1;
+
+      // Apuntar al siguiente ejercicio AHORA para que si el usuario
+      // pulsa ▶ antes del timeout, empiece donde toca y no reinicie el anterior
+      activeExerciseIndex = nextExIdx;
+      activeStepIndex = -1;
+
       setTimeout(() => {
         if (!autoMode) {
           selectExerciseDetail(nextExIdx);
           document.getElementById('timer-ex-target').innerText =
-            'Pulsa ▶ en el primer paso para continuar con el siguiente ejercicio';
+            'Pulsa ▶ para continuar con el siguiente ejercicio';
+
+          // Expandir el siguiente ejercicio en el timeline para que el usuario
+          // vea sus pasos y no tenga que buscarlo o clicar el anterior por error
+          const nextGroupKey = `${currentDayKey}_${nextExIdx}`;
+          if (collapsedState[nextGroupKey] !== false) {
+            collapsedState[nextGroupKey] = false;
+            localStorage.setItem('airflare_collapsed_v2', JSON.stringify(collapsedState));
+            const stepsEl = document.getElementById(`steps-${nextGroupKey}`);
+            const nextHeader = document.querySelectorAll('.exercise-group-header')[nextExIdx];
+            if (stepsEl) stepsEl.classList.remove('collapsed');
+            if (nextHeader) nextHeader.querySelector('.group-collapse-icon').textContent = '▼';
+          }
         }
       }, 1500);
     }
