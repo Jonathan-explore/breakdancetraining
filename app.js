@@ -1352,19 +1352,36 @@ function renderTimeline(dayKey, exercises) {
   const container = document.getElementById('timeline-container');
   container.innerHTML = '';
 
+  const icons = { 'CALENTAMIENTO': '🔥', 'ENTRENAMIENTO': '💪', 'POST-ENTRENAMIENTO': '🌙' };
   let lastCategory = null;
+  let currentCatContainer = null;
 
   exercises.forEach((ex, exIdx) => {
     const category = getPhaseCategory(ex.block);
+
+    // ── SEPARADOR DE CATEGORÍA (ahora colapsable) ──
     if (category !== lastCategory) {
       lastCategory = category;
-      const sep = document.createElement('div');
       const catClass = category.toLowerCase().replace(/-/g, '');
+
+      const sep = document.createElement('div');
       sep.className = `block-category-separator cat-${catClass}`;
-      const icons = { 'CALENTAMIENTO': '🔥', 'ENTRENAMIENTO': '💪', 'POST-ENTRENAMIENTO': '🌙' };
-      sep.innerHTML = `<span class="block-cat-icon">${icons[category] || ''}</span><span>${category}</span>`;
+      sep.setAttribute('data-category', catClass);
+      sep.innerHTML = `
+        <span class="block-cat-icon">${icons[category] || ''}</span>
+        <span>${category}</span>
+        <span class="cat-chevron">▶</span>
+      `;
+      sep.addEventListener('click', () => toggleCategory(catClass, sep));
       container.appendChild(sep);
+
+      // Contenedor de ejercicios de esta categoría — colapsado por defecto
+      currentCatContainer = document.createElement('div');
+      currentCatContainer.className = 'category-content collapsed-cat';
+      currentCatContainer.id = `cat-${catClass}`;
+      container.appendChild(currentCatContainer);
     }
+
     const groupKey = `${dayKey}_${exIdx}`;
     if (collapsedState[groupKey] === undefined) collapsedState[groupKey] = true;
     const isCollapsed = collapsedState[groupKey] === true;
@@ -1386,11 +1403,19 @@ function renderTimeline(dayKey, exercises) {
         </div>
       </div>
       <div class="group-header-right">
+        <button class="btn-tech-toggle" onclick="event.stopPropagation(); toggleTechnique(${exIdx})" title="Ver indicaciones del ejercicio">📖</button>
         <span class="group-step-count ${completedCount === totalSteps && totalSteps > 0 ? 'all-done' : ''}">${completedCount}/${totalSteps}</span>
       </div>
     `;
     header.addEventListener('click', () => toggleGroupCollapse(dayKey, exIdx, groupKey));
-    container.appendChild(header);
+    currentCatContainer.appendChild(header);
+
+    // —— PANEL DE TÉCNICA (oculto por defecto, se abre con 📖) ——
+    const techPanel = document.createElement('div');
+    techPanel.className = 'technique-panel collapsed-tech';
+    techPanel.id = `tech-panel-${exIdx}`;
+    techPanel.innerHTML = buildTechPanelHTML(ex);
+    currentCatContainer.appendChild(techPanel);
 
     // —— CONTENEDOR DE PASOS ——
     const stepsContainer = document.createElement('div');
@@ -1441,10 +1466,66 @@ function renderTimeline(dayKey, exercises) {
       stepsContainer.appendChild(stepRow);
     });
 
-    container.appendChild(stepsContainer);
+    currentCatContainer.appendChild(stepsContainer);
   });
 
   updateProgressBar(dayKey, exercises);
+}
+
+// =============================================================================
+// COLAPSAR / EXPANDIR CATEGORÍA
+// =============================================================================
+function toggleCategory(catClass, sepEl) {
+  const contentEl = document.getElementById(`cat-${catClass}`);
+  if (!contentEl) return;
+  const nowCollapsed = contentEl.classList.toggle('collapsed-cat');
+  sepEl.classList.toggle('expanded', !nowCollapsed);
+}
+
+function expandCategory(catClass) {
+  const contentEl = document.getElementById(`cat-${catClass}`);
+  const sepEl = document.querySelector(`.block-category-separator[data-category="${catClass}"]`);
+  if (contentEl && contentEl.classList.contains('collapsed-cat')) {
+    contentEl.classList.remove('collapsed-cat');
+    if (sepEl) sepEl.classList.add('expanded');
+  }
+}
+
+// =============================================================================
+// ABRIR / CERRAR PANEL DE TÉCNICA DEL EJERCICIO
+// =============================================================================
+function toggleTechnique(exIdx) {
+  const panel = document.getElementById(`tech-panel-${exIdx}`);
+  if (!panel) return;
+  const nowOpen = !panel.classList.toggle('collapsed-tech');
+  const headers = document.querySelectorAll('.exercise-group-header');
+  if (headers[exIdx]) {
+    headers[exIdx].querySelector('.btn-tech-toggle')?.classList.toggle('active', nowOpen);
+  }
+}
+
+function buildTechPanelHTML(ex) {
+  let html = '<div class="tech-panel-body">';
+
+  if (ex.technique) {
+    const text = Array.isArray(ex.technique)
+      ? ex.technique.map((t, i) => `<span class="tp-num">${i + 1}.</span> ${t}`).join('<br>')
+      : ex.technique;
+    html += `<div class="tp-section"><span class="tp-label">⚡ Cómo hacerlo</span><p>${text}</p></div>`;
+  }
+
+  if (ex.breathing) {
+    html += `<div class="tp-section"><span class="tp-label tp-label-breath">💨 Respiración</span><p>${ex.breathing}</p></div>`;
+  }
+
+  if (ex.errors && ex.errors.length) {
+    html += `<div class="tp-section"><span class="tp-label tp-label-warn">⚠ Errores a evitar</span>`;
+    html += ex.errors.map(e => `<p class="tp-error">• ${e}</p>`).join('');
+    html += `</div>`;
+  }
+
+  html += '</div>';
+  return html;
 }
 
 // =============================================================================
@@ -1775,6 +1856,10 @@ function processAutoStep(exIdx, stepIdx) {
   // Seleccionar fila visualmente
   selectStep(exIdx, stepIdx);
 
+  // Expandir la categoría si está colapsada
+  const catClass = getPhaseCategory(ex.block).toLowerCase().replace(/-/g, '');
+  expandCategory(catClass);
+
   // Expandir el grupo si está colapsado
   const groupKey = `${currentDayKey}_${exIdx}`;
   if (collapsedState[groupKey]) toggleGroupCollapse(currentDayKey, exIdx, groupKey);
@@ -1957,8 +2042,14 @@ function autoAdvanceToNext(isSkip) {
           document.getElementById('timer-ex-target').innerText =
             'Pulsa ▶ para continuar con el siguiente ejercicio';
 
-          // Expandir el siguiente ejercicio en el timeline para que el usuario
-          // vea sus pasos y no tenga que buscarlo o clicar el anterior por error
+          // Expandir la categoría del siguiente ejercicio si está colapsada
+          const nextEx = data.exercises[nextExIdx];
+          if (nextEx) {
+            const nextCatClass = getPhaseCategory(nextEx.block).toLowerCase().replace(/-/g, '');
+            expandCategory(nextCatClass);
+          }
+
+          // Expandir el siguiente ejercicio en el timeline
           const nextGroupKey = `${currentDayKey}_${nextExIdx}`;
           if (collapsedState[nextGroupKey] !== false) {
             collapsedState[nextGroupKey] = false;
