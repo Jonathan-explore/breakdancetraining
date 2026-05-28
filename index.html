@@ -303,41 +303,53 @@
 
           </section>
 
-          <!-- DETALLES TÉCNICOS COMPLETOS DEL EJERCICIO SELECCIONADO -->
-          <section class="exercise-details-section">
-            
-            <div class="detail-card glass-card">
-              <h3 class="detail-title border-accent">Técnica de Ejecución</h3>
-              <div class="detail-body" id="detail-tech">
-                <p>Selecciona un ejercicio para ver sus detalles técnicos.</p>
+          <!-- PANEL DE DETALLES — Tab segmentado estilo iOS -->
+          <section class="detail-panel glass-card" id="detail-panel">
+
+            <!-- Tab bar -->
+            <div class="detail-tab-bar">
+              <button class="detail-tab active" data-tab="tech" onclick="switchDetailTab('tech')">
+                <span class="dtab-icon">⚡</span>
+                <span class="dtab-label">Técnica</span>
+              </button>
+              <button class="detail-tab" data-tab="breath" onclick="switchDetailTab('breath')">
+                <span class="dtab-icon">💨</span>
+                <span class="dtab-label">Resp.</span>
+              </button>
+              <button class="detail-tab" data-tab="errors" onclick="switchDetailTab('errors')">
+                <span class="dtab-icon">⚠️</span>
+                <span class="dtab-label">Errores</span>
+              </button>
+              <button class="detail-tab" data-tab="tips" onclick="switchDetailTab('tips')">
+                <span class="dtab-icon">🏆</span>
+                <span class="dtab-label">Tips</span>
+              </button>
+              <button class="detail-tab" data-tab="alt" onclick="switchDetailTab('alt')">
+                <span class="dtab-icon">🔄</span>
+                <span class="dtab-label">Alt.</span>
+              </button>
+            </div>
+
+            <!-- Paneles de contenido -->
+            <div class="detail-panel-body">
+              <div class="dtab-panel active" id="dtab-panel-tech">
+                <div id="detail-tech"><p class="dtab-placeholder">Selecciona un ejercicio para ver la técnica.</p></div>
               </div>
-            </div>
-
-            <div class="detail-card glass-card">
-              <h3 class="detail-title border-accent-secondary">Patrón Respiratorio</h3>
-              <div class="detail-body" id="detail-breath">
-                <p>Información de respiración.</p>
+              <div class="dtab-panel" id="dtab-panel-breath">
+                <div id="detail-breath"><p class="dtab-placeholder">Selecciona un ejercicio para ver la respiración.</p></div>
               </div>
-            </div>
-
-            <div class="detail-card glass-card border-danger-glow">
-              <h3 class="detail-title text-danger">Errores que matan el ejercicio</h3>
-              <ul class="detail-list danger-list" id="detail-errors">
-                <li>Selecciona un ejercicio para ver los errores comunes.</li>
-              </ul>
-            </div>
-
-            <div class="detail-card glass-card border-success-glow">
-              <h3 class="detail-title text-success">Tips de nivel élite</h3>
-              <ul class="detail-list success-list" id="detail-tips">
-                <li>Selecciona un ejercicio para ver los consejos avanzados.</li>
-              </ul>
-            </div>
-
-            <div class="detail-card glass-card">
-              <h3 class="detail-title text-muted">Alternativas / Regresiones</h3>
-              <div class="detail-body" id="detail-alt">
-                <p>Regresiones disponibles.</p>
+              <div class="dtab-panel" id="dtab-panel-errors">
+                <ul class="detail-list danger-list" id="detail-errors">
+                  <li>Selecciona un ejercicio para ver los errores comunes.</li>
+                </ul>
+              </div>
+              <div class="dtab-panel" id="dtab-panel-tips">
+                <ul class="detail-list success-list" id="detail-tips">
+                  <li>Selecciona un ejercicio para ver los tips élite.</li>
+                </ul>
+              </div>
+              <div class="dtab-panel" id="dtab-panel-alt">
+                <div id="detail-alt"><p class="dtab-placeholder">Regresiones disponibles.</p></div>
               </div>
             </div>
 
@@ -356,45 +368,44 @@
             </div>
           </section>
 
-          <!-- NUTRICIÓN DEL DÍA -->
+          <!-- NUTRICIÓN DEL DÍA — Tab segmentado -->
           <section class="nutrition-section glass-card">
-            <h3 class="section-title">Plan Nutricional de la Sesión</h3>
-            
-            <div class="nutrition-grid">
-              
-              <div class="nutrition-item">
-                <div class="nutrition-header">
-                  <span class="nut-icon">🍳</span>
-                  <span class="nut-label">PRE-ENTRENAMIENTO (90m antes)</span>
-                </div>
-                <p class="nutrition-text" id="nut-pre">Cargando...</p>
-              </div>
+            <h3 class="section-title">Nutrición de la Sesión</h3>
 
-              <div class="nutrition-item">
-                <div class="nutrition-header">
-                  <span class="nut-icon">💧</span>
-                  <span class="nut-label">INTRA-ENTRENAMIENTO</span>
-                </div>
-                <p class="nutrition-text" id="nut-intra">Cargando...</p>
-              </div>
-
-              <div class="nutrition-item">
-                <div class="nutrition-header">
-                  <span class="nut-icon">🍌</span>
-                  <span class="nut-label">POST-ENTRENAMIENTO (45m post)</span>
-                </div>
-                <p class="nutrition-text" id="nut-post">Cargando...</p>
-              </div>
-
-              <div class="nutrition-item">
-                <div class="nutrition-header">
-                  <span class="nut-icon">🐟</span>
-                  <span class="nut-label">CENA (3-4h después)</span>
-                </div>
-                <p class="nutrition-text" id="nut-dinner">Cargando...</p>
-              </div>
-
+            <!-- Selector de momento nutricional -->
+            <div class="nut-tab-bar">
+              <button class="nut-tab active" data-nut="pre" onclick="switchNutTab('pre')">
+                <span class="nut-tab-icon">🍳</span>
+                <span class="nut-tab-lbl">PRE</span>
+              </button>
+              <button class="nut-tab" data-nut="intra" onclick="switchNutTab('intra')">
+                <span class="nut-tab-icon">💧</span>
+                <span class="nut-tab-lbl">INTRA</span>
+              </button>
+              <button class="nut-tab" data-nut="post" onclick="switchNutTab('post')">
+                <span class="nut-tab-icon">🍌</span>
+                <span class="nut-tab-lbl">POST</span>
+              </button>
+              <button class="nut-tab" data-nut="dinner" onclick="switchNutTab('dinner')">
+                <span class="nut-tab-icon">🌙</span>
+                <span class="nut-tab-lbl">CENA</span>
+              </button>
             </div>
+
+            <!-- Contenido nutricional -->
+            <div class="nut-panel active" id="nut-panel-pre">
+              <p class="nut-panel-text" id="nut-pre">Cargando...</p>
+            </div>
+            <div class="nut-panel" id="nut-panel-intra">
+              <p class="nut-panel-text" id="nut-intra">Cargando...</p>
+            </div>
+            <div class="nut-panel" id="nut-panel-post">
+              <p class="nut-panel-text" id="nut-post">Cargando...</p>
+            </div>
+            <div class="nut-panel" id="nut-panel-dinner">
+              <p class="nut-panel-text" id="nut-dinner">Cargando...</p>
+            </div>
+
           </section>
 
         </div>

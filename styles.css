@@ -174,6 +174,9 @@ body {
   display: flex;
   min-height: 100vh;
   background-color: var(--bg-void);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* ── SIDEBAR (Desktop) ───────────────────────────────────────────────────────── */
@@ -408,6 +411,8 @@ body {
   gap: 24px;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
   position: relative;
 }
 
@@ -615,6 +620,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  min-width: 0;
 }
 
 /* ── GLASS CARDS ────────────────────────────────────────────────────────────── */
@@ -627,6 +633,9 @@ body {
   box-shadow: var(--shadow-card);
   position: relative;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   transition: border-color var(--dur-mid) var(--ease-smooth),
               box-shadow var(--dur-mid) var(--ease-smooth);
   animation: fadeUp var(--dur-slow) var(--ease-out) both;
@@ -714,6 +723,8 @@ body {
   margin: 22px auto;
   position: relative;
   display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .timer-display {
@@ -859,6 +870,8 @@ body {
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.65;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .detail-list {
@@ -1056,8 +1069,9 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
+  overflow: hidden;
 }
 
 .group-collapse-icon {
@@ -1191,6 +1205,9 @@ body {
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.35;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .step-label-rest {
@@ -1376,6 +1393,8 @@ body {
   letter-spacing: 0.5px;
   color: var(--text-primary);
   text-transform: uppercase;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .nutrition-text {
@@ -1429,7 +1448,12 @@ body {
   }
 
   /* ── Layout base ── */
-  .dashboard-wrapper { flex-direction: column; }
+  .dashboard-wrapper {
+    flex-direction: column;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+  }
 
   /* ── BOTTOM NAV PREMIUM ── */
   .sidebar {
@@ -1532,6 +1556,9 @@ body {
   .main-content {
     padding: 16px 14px max(96px, calc(72px + env(safe-area-inset-bottom, 0px)));
     height: auto;
+    overflow: visible;
+    width: 100%;
+    max-width: 100%;
     gap: 16px;
   }
 
@@ -1562,7 +1589,8 @@ body {
   .day-metrics-bar { gap: 10px; }
 
   .metric-card {
-    min-width: 130px;
+    min-width: 0;
+    flex: 1 1 130px;
     padding: 11px 14px;
   }
 
@@ -2274,4 +2302,645 @@ body {
 /* ── PWA safe area padding ──────────────────────────────────────────────────── */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .data-panel-body { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SISTEMA DE IDENTIDAD VISUAL — Color por tipo de contenido
+   Cada sección tiene su propio color, borde y fondo. Reconocimiento inmediato.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Variables de color por tipo ── */
+:root {
+  --c-tech:    #ff6b00;
+  --c-tech-rgb: 255, 107, 0;
+  --c-breath:  #00b4d8;
+  --c-breath-rgb: 0, 180, 216;
+  --c-errors:  #ff1744;
+  --c-errors-rgb: 255, 23, 68;
+  --c-tips:    #ffd60a;
+  --c-tips-rgb: 255, 214, 10;
+  --c-alt:     #9b5de5;
+  --c-alt-rgb: 155, 93, 229;
+  --c-pre:     #ff9500;
+  --c-pre-rgb: 255, 149, 0;
+  --c-intra:   #0096c7;
+  --c-intra-rgb: 0, 150, 199;
+  --c-post:    #9b5de5;
+  --c-post-rgb: 155, 93, 229;
+  --c-dinner:  #2ec4b6;
+  --c-dinner-rgb: 46, 196, 182;
+}
+
+/* ── Base del detail-title (reset) ── */
+.detail-card .detail-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: -22px -22px 18px -22px;
+  padding: 13px 20px 11px 16px;
+  border-left: none;
+  border-bottom: 1px solid;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* ── TÉCNICA — Naranja fuego ── */
+.card-technique {
+  border-color: rgba(var(--c-tech-rgb), 0.35) !important;
+  background: linear-gradient(145deg, rgba(var(--c-tech-rgb), 0.07) 0%, var(--bg-card) 50%) !important;
+  box-shadow: var(--shadow-card), inset 0 0 40px rgba(var(--c-tech-rgb), 0.03) !important;
+}
+.card-technique::before {
+  background: linear-gradient(90deg, var(--c-tech), rgba(200, 151, 60, 0.8), transparent) !important;
+  height: 3px !important;
+  opacity: 1 !important;
+}
+.card-technique:hover {
+  border-color: rgba(var(--c-tech-rgb), 0.55) !important;
+  box-shadow: var(--shadow-card), 0 0 24px rgba(var(--c-tech-rgb), 0.1) !important;
+}
+.card-technique .detail-title {
+  color: var(--c-tech);
+  background: linear-gradient(90deg, rgba(var(--c-tech-rgb), 0.14), rgba(var(--c-tech-rgb), 0.04));
+  border-bottom-color: rgba(var(--c-tech-rgb), 0.2);
+  border-left: 4px solid var(--c-tech) !important;
+  text-shadow: 0 0 20px rgba(var(--c-tech-rgb), 0.4);
+}
+
+/* ── RESPIRATORIO — Azul cielo / aire ── */
+.card-breath {
+  border-color: rgba(var(--c-breath-rgb), 0.35) !important;
+  background: linear-gradient(145deg, rgba(var(--c-breath-rgb), 0.07) 0%, var(--bg-card) 50%) !important;
+  box-shadow: var(--shadow-card), inset 0 0 40px rgba(var(--c-breath-rgb), 0.03) !important;
+}
+.card-breath::before {
+  background: linear-gradient(90deg, var(--c-breath), rgba(0, 150, 199, 0.6), transparent) !important;
+  height: 3px !important;
+  opacity: 1 !important;
+}
+.card-breath:hover {
+  border-color: rgba(var(--c-breath-rgb), 0.55) !important;
+  box-shadow: var(--shadow-card), 0 0 24px rgba(var(--c-breath-rgb), 0.1) !important;
+}
+.card-breath .detail-title {
+  color: var(--c-breath);
+  background: linear-gradient(90deg, rgba(var(--c-breath-rgb), 0.14), rgba(var(--c-breath-rgb), 0.04));
+  border-bottom-color: rgba(var(--c-breath-rgb), 0.2);
+  border-left: 4px solid var(--c-breath) !important;
+  text-shadow: 0 0 20px rgba(var(--c-breath-rgb), 0.4);
+}
+
+/* ── ERRORES — Rojo peligro ── */
+.card-errors {
+  border-color: rgba(var(--c-errors-rgb), 0.35) !important;
+  background: linear-gradient(145deg, rgba(var(--c-errors-rgb), 0.07) 0%, var(--bg-card) 50%) !important;
+  box-shadow: var(--shadow-card), inset 0 0 40px rgba(var(--c-errors-rgb), 0.03) !important;
+}
+.card-errors::before {
+  background: linear-gradient(90deg, var(--c-errors), rgba(255, 100, 100, 0.6), transparent) !important;
+  height: 3px !important;
+  opacity: 1 !important;
+}
+.card-errors:hover {
+  border-color: rgba(var(--c-errors-rgb), 0.55) !important;
+  box-shadow: var(--shadow-card), 0 0 24px rgba(var(--c-errors-rgb), 0.1) !important;
+}
+.card-errors .detail-title {
+  color: var(--c-errors);
+  background: linear-gradient(90deg, rgba(var(--c-errors-rgb), 0.14), rgba(var(--c-errors-rgb), 0.04));
+  border-bottom-color: rgba(var(--c-errors-rgb), 0.2);
+  border-left: 4px solid var(--c-errors) !important;
+  text-shadow: 0 0 20px rgba(var(--c-errors-rgb), 0.4);
+}
+.card-errors .detail-list li::before { color: var(--c-errors); }
+
+/* ── TIPS ÉLITE — Dorado campeón ── */
+.card-tips {
+  border-color: rgba(var(--c-tips-rgb), 0.3) !important;
+  background: linear-gradient(145deg, rgba(var(--c-tips-rgb), 0.06) 0%, var(--bg-card) 50%) !important;
+  box-shadow: var(--shadow-card), inset 0 0 40px rgba(var(--c-tips-rgb), 0.02) !important;
+}
+.card-tips::before {
+  background: linear-gradient(90deg, var(--c-tips), rgba(var(--green-rgb), 0.6), transparent) !important;
+  height: 3px !important;
+  opacity: 1 !important;
+}
+.card-tips:hover {
+  border-color: rgba(var(--c-tips-rgb), 0.5) !important;
+  box-shadow: var(--shadow-card), 0 0 24px rgba(var(--c-tips-rgb), 0.1) !important;
+}
+.card-tips .detail-title {
+  color: var(--c-tips);
+  background: linear-gradient(90deg, rgba(var(--c-tips-rgb), 0.12), rgba(var(--c-tips-rgb), 0.03));
+  border-bottom-color: rgba(var(--c-tips-rgb), 0.2);
+  border-left: 4px solid var(--c-tips) !important;
+  text-shadow: 0 0 20px rgba(var(--c-tips-rgb), 0.5);
+}
+.card-tips .detail-list li::before { color: var(--c-tips); }
+
+/* ── ALTERNATIVAS — Púrpura opción ── */
+.card-alt {
+  border-color: rgba(var(--c-alt-rgb), 0.3) !important;
+  background: linear-gradient(145deg, rgba(var(--c-alt-rgb), 0.06) 0%, var(--bg-card) 50%) !important;
+  box-shadow: var(--shadow-card), inset 0 0 40px rgba(var(--c-alt-rgb), 0.02) !important;
+}
+.card-alt::before {
+  background: linear-gradient(90deg, var(--c-alt), rgba(199, 125, 255, 0.5), transparent) !important;
+  height: 3px !important;
+  opacity: 1 !important;
+}
+.card-alt:hover {
+  border-color: rgba(var(--c-alt-rgb), 0.5) !important;
+  box-shadow: var(--shadow-card), 0 0 24px rgba(var(--c-alt-rgb), 0.1) !important;
+}
+.card-alt .detail-title {
+  color: #c77dff;
+  background: linear-gradient(90deg, rgba(var(--c-alt-rgb), 0.12), rgba(var(--c-alt-rgb), 0.03));
+  border-bottom-color: rgba(var(--c-alt-rgb), 0.2);
+  border-left: 4px solid var(--c-alt) !important;
+  text-shadow: 0 0 20px rgba(var(--c-alt-rgb), 0.4);
+}
+
+/* ── NUTRICIÓN — Sistema de colores por momento ── */
+.nutrition-item {
+  border-left: 3px solid transparent;
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+/* PRE — Ámbar combustible */
+.nut-pre {
+  border-color: rgba(var(--c-pre-rgb), 0.25);
+  background: linear-gradient(135deg, rgba(var(--c-pre-rgb), 0.06) 0%, rgba(255,255,255,0.015) 60%);
+  border-left-color: var(--c-pre);
+}
+.nut-pre:hover { border-color: rgba(var(--c-pre-rgb), 0.45); background: linear-gradient(135deg, rgba(var(--c-pre-rgb), 0.1) 0%, rgba(255,255,255,0.015) 60%); }
+.nut-pre .nut-label { color: var(--c-pre); }
+.nut-pre .nut-icon {
+  background: rgba(var(--c-pre-rgb), 0.12);
+  border-radius: 8px;
+  padding: 4px;
+  filter: drop-shadow(0 0 6px rgba(var(--c-pre-rgb), 0.4));
+}
+
+/* INTRA — Azul hidratación */
+.nut-intra {
+  border-color: rgba(var(--c-intra-rgb), 0.25);
+  background: linear-gradient(135deg, rgba(var(--c-intra-rgb), 0.06) 0%, rgba(255,255,255,0.015) 60%);
+  border-left-color: var(--c-intra);
+}
+.nut-intra:hover { border-color: rgba(var(--c-intra-rgb), 0.45); background: linear-gradient(135deg, rgba(var(--c-intra-rgb), 0.1) 0%, rgba(255,255,255,0.015) 60%); }
+.nut-intra .nut-label { color: var(--c-intra); }
+.nut-intra .nut-icon {
+  background: rgba(var(--c-intra-rgb), 0.12);
+  border-radius: 8px;
+  padding: 4px;
+  filter: drop-shadow(0 0 6px rgba(var(--c-intra-rgb), 0.4));
+}
+
+/* POST — Púrpura recuperación */
+.nut-post {
+  border-color: rgba(var(--c-post-rgb), 0.25);
+  background: linear-gradient(135deg, rgba(var(--c-post-rgb), 0.06) 0%, rgba(255,255,255,0.015) 60%);
+  border-left-color: var(--c-post);
+}
+.nut-post:hover { border-color: rgba(var(--c-post-rgb), 0.45); background: linear-gradient(135deg, rgba(var(--c-post-rgb), 0.1) 0%, rgba(255,255,255,0.015) 60%); }
+.nut-post .nut-label { color: #c77dff; }
+.nut-post .nut-icon {
+  background: rgba(var(--c-post-rgb), 0.12);
+  border-radius: 8px;
+  padding: 4px;
+  filter: drop-shadow(0 0 6px rgba(var(--c-post-rgb), 0.4));
+}
+
+/* CENA — Verde azulado restauración */
+.nut-dinner {
+  border-color: rgba(var(--c-dinner-rgb), 0.25);
+  background: linear-gradient(135deg, rgba(var(--c-dinner-rgb), 0.06) 0%, rgba(255,255,255,0.015) 60%);
+  border-left-color: var(--c-dinner);
+}
+.nut-dinner:hover { border-color: rgba(var(--c-dinner-rgb), 0.45); background: linear-gradient(135deg, rgba(var(--c-dinner-rgb), 0.1) 0%, rgba(255,255,255,0.015) 60%); }
+.nut-dinner .nut-label { color: var(--c-dinner); }
+.nut-dinner .nut-icon {
+  background: rgba(var(--c-dinner-rgb), 0.12);
+  border-radius: 8px;
+  padding: 4px;
+  filter: drop-shadow(0 0 6px rgba(var(--c-dinner-rgb), 0.4));
+}
+
+/* ── Sección de nutrición — header visual mejorado ── */
+.nutrition-section .section-title {
+  border-left: 3px solid var(--green);
+  padding-left: 10px;
+  color: var(--green);
+}
+
+/* ── Sección de timeline — header visual mejorado ── */
+.timeline-section .section-title {
+  border-left: 3px solid var(--orange-bright);
+  padding-left: 10px;
+  color: var(--orange-bright);
+}
+
+/* ── Timer card — borde top animado más prominente ── */
+.timer-section.glass-card::after {
+  height: 3px !important;
+}
+
+/* ── Badges de bloque — más pop ── */
+.exercise-block-badge {
+  font-size: 9px !important;
+  font-weight: 900 !important;
+  padding: 3px 9px !important;
+  border-radius: 4px !important;
+  letter-spacing: 0.5px !important;
+}
+
+.block-calentamiento  { border: 1px solid rgba(255,255,255,0.1); }
+.block-activacion     { box-shadow: 0 0 8px rgba(var(--orange-rgb), 0.2); }
+.block-power          { box-shadow: 0 0 8px rgba(var(--green-rgb), 0.2); }
+.block-power-plus     { box-shadow: 0 0 8px rgba(0,255,170,0.2); }
+.block-fuerza         { box-shadow: 0 0 8px rgba(var(--blue-rgb), 0.2); }
+.block-baile          { box-shadow: 0 0 8px rgba(186,85,211,0.2); }
+.block-mental         { box-shadow: 0 0 8px rgba(255,215,0,0.15); }
+.block-recuperacion   { box-shadow: 0 0 8px rgba(100,200,255,0.15); }
+.block-powertest      { box-shadow: 0 0 10px rgba(255,50,50,0.25); }
+.block-vueltacalma    { border: 1px solid rgba(144,164,174,0.15); }
+.block-movilidad      { box-shadow: 0 0 8px rgba(100,220,200,0.15); }
+.block-mantenimiento  { border: 1px solid rgba(150,150,200,0.12); }
+
+/* ── Ajuste para mobile — detail title padding correcto ── */
+@media (max-width: 900px) {
+  .detail-card .detail-title {
+    margin: -18px -18px 16px -18px;
+    padding: 12px 18px 10px 14px;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PANEL DE DETALLES — Tabs estilo iOS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.detail-panel {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+/* Barra de tabs */
+.detail-tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Cada tab */
+.detail-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 11px 4px 10px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: background var(--dur-fast) var(--ease-smooth);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.detail-tab + .detail-tab {
+  border-left: 1px solid var(--border);
+}
+
+.detail-tab:active { background: rgba(255,255,255,0.04); }
+
+.dtab-icon {
+  font-size: 16px;
+  line-height: 1;
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+
+.detail-tab.active .dtab-icon { transform: scale(1.15); }
+
+.dtab-label {
+  font-family: var(--font-display);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  transition: color var(--dur-fast) var(--ease-smooth);
+  white-space: nowrap;
+}
+
+/* Indicador activo — línea inferior */
+.detail-tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 25%;
+  right: 25%;
+  height: 2.5px;
+  border-radius: 2px 2px 0 0;
+  opacity: 0;
+  transform: scaleX(0.4);
+  transition: opacity var(--dur-fast) var(--ease-smooth),
+              transform var(--dur-fast) var(--ease-spring);
+}
+
+.detail-tab.active::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* Colores por tab */
+.detail-tab.active[data-tab="tech"] { background: rgba(var(--c-tech-rgb), 0.06); }
+.detail-tab.active[data-tab="tech"] .dtab-label { color: var(--c-tech); }
+.detail-tab.active[data-tab="tech"]::after { background: var(--c-tech); box-shadow: 0 0 8px rgba(var(--c-tech-rgb), 0.6); }
+
+.detail-tab.active[data-tab="breath"] { background: rgba(var(--c-breath-rgb), 0.06); }
+.detail-tab.active[data-tab="breath"] .dtab-label { color: var(--c-breath); }
+.detail-tab.active[data-tab="breath"]::after { background: var(--c-breath); box-shadow: 0 0 8px rgba(var(--c-breath-rgb), 0.6); }
+
+.detail-tab.active[data-tab="errors"] { background: rgba(var(--c-errors-rgb), 0.06); }
+.detail-tab.active[data-tab="errors"] .dtab-label { color: var(--c-errors); }
+.detail-tab.active[data-tab="errors"]::after { background: var(--c-errors); box-shadow: 0 0 8px rgba(var(--c-errors-rgb), 0.6); }
+
+.detail-tab.active[data-tab="tips"] { background: rgba(var(--c-tips-rgb), 0.06); }
+.detail-tab.active[data-tab="tips"] .dtab-label { color: var(--c-tips); }
+.detail-tab.active[data-tab="tips"]::after { background: var(--c-tips); box-shadow: 0 0 8px rgba(var(--c-tips-rgb), 0.5); }
+
+.detail-tab.active[data-tab="alt"] { background: rgba(var(--c-alt-rgb), 0.06); }
+.detail-tab.active[data-tab="alt"] .dtab-label { color: #c77dff; }
+.detail-tab.active[data-tab="alt"]::after { background: var(--c-alt); box-shadow: 0 0 8px rgba(var(--c-alt-rgb), 0.6); }
+
+/* Cuerpo del panel */
+.detail-panel-body {
+  padding: 20px 22px 22px;
+  min-height: 140px;
+}
+
+/* Paneles individuales */
+.dtab-panel {
+  display: none;
+}
+
+.dtab-panel.active {
+  display: block;
+  animation: dtabFadeIn 0.22s var(--ease-out) both;
+}
+
+@keyframes dtabFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dtab-placeholder {
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   NUTRICIÓN — Tabs segmentadas
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.nut-tab-bar {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 16px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.nut-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 9px 4px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-spring);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nut-tab:active { transform: scale(0.90); }
+
+.nut-tab-icon { font-size: 16px; line-height: 1; }
+
+.nut-tab-lbl {
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  transition: color var(--dur-fast) var(--ease-smooth);
+}
+
+/* Colores activos por tab nutricional */
+.nut-tab[data-nut="pre"].active   { background: rgba(var(--c-pre-rgb), 0.13); }
+.nut-tab[data-nut="pre"].active .nut-tab-lbl { color: var(--c-pre); }
+
+.nut-tab[data-nut="intra"].active { background: rgba(var(--c-intra-rgb), 0.13); }
+.nut-tab[data-nut="intra"].active .nut-tab-lbl { color: var(--c-intra); }
+
+.nut-tab[data-nut="post"].active  { background: rgba(var(--c-post-rgb), 0.13); }
+.nut-tab[data-nut="post"].active .nut-tab-lbl { color: #c77dff; }
+
+.nut-tab[data-nut="dinner"].active { background: rgba(var(--c-dinner-rgb), 0.13); }
+.nut-tab[data-nut="dinner"].active .nut-tab-lbl { color: var(--c-dinner); }
+
+/* Panel de contenido nutricional */
+.nut-panel {
+  display: none;
+}
+
+.nut-panel.active {
+  display: block;
+  animation: dtabFadeIn 0.22s var(--ease-out) both;
+}
+
+.nut-panel-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PREMIUM TOUCH — Mejoras globales de interacción y jerarquía
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Step rows — más limpios y táctiles */
+.step-row {
+  border-radius: var(--radius-md) !important;
+  transition: background var(--dur-fast) var(--ease-smooth),
+              transform 0.1s var(--ease-spring),
+              border-color var(--dur-fast) var(--ease-smooth) !important;
+}
+
+.step-row:active {
+  transform: scale(0.97) !important;
+  background: rgba(var(--orange-rgb), 0.06) !important;
+}
+
+/* Exercise group headers — más táctiles */
+.exercise-group-header {
+  transition: background var(--dur-fast) var(--ease-smooth),
+              transform 0.12s var(--ease-spring),
+              border-color var(--dur-fast) var(--ease-smooth) !important;
+}
+
+.exercise-group-header:active {
+  transform: scale(0.985) !important;
+}
+
+/* Tab buttons — spring tap */
+.tab-btn:active {
+  transform: scale(0.88) !important;
+}
+
+/* Botones de timer — spring  */
+.btn-timer:active {
+  transform: scale(0.94) !important;
+}
+
+/* Botón rest — spring */
+.btn-rest {
+  transition: all var(--dur-fast) var(--ease-spring) !important;
+}
+
+/* La barra de días en móvil — dots más visibles */
+.tab-btn.active .day-short {
+  filter: drop-shadow(0 0 8px rgba(var(--orange-rgb), 0.7)) !important;
+}
+
+/* Section title premium */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Métricas — números más grandes */
+.metric-value {
+  font-size: 16px !important;
+  font-weight: 800 !important;
+}
+
+.metric-label {
+  font-size: 8px !important;
+  letter-spacing: 1.8px !important;
+}
+
+/* Técnica checklist items — más espacio */
+.tech-checklist-item {
+  padding: 11px 0 !important;
+}
+
+.tech-item-text {
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+}
+
+/* Detail list items — más legibles */
+.detail-list li {
+  font-size: 13.5px !important;
+  line-height: 1.6 !important;
+  padding-left: 18px !important;
+}
+
+/* Steps container — línea lateral más sutil */
+.steps-container {
+  border-left: 1px solid rgba(255,255,255,0.03) !important;
+  margin-left: 8px !important;
+}
+
+/* Collapse icon mejorado */
+.group-collapse-icon {
+  font-size: 10px !important;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  transition: all var(--dur-fast) var(--ease-spring) !important;
+  flex-shrink: 0;
+}
+
+.exercise-group-header.active-group .group-collapse-icon {
+  background: rgba(var(--orange-rgb), 0.1) !important;
+  border-color: rgba(var(--orange-rgb), 0.3) !important;
+  color: var(--orange) !important;
+}
+
+/* Badge de categoría — posición vertical */
+.group-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px !important;
+}
+
+/* Nombre del ejercicio — más legible */
+.group-exercise-name {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+/* Timer display — leve mejora de legibilidad */
+#timer-ex-name {
+  letter-spacing: -0.5px !important;
+}
+
+/* Separador de categoría — más limpio */
+.block-category-separator {
+  font-size: 9px !important;
+  letter-spacing: 3px !important;
+  opacity: 0.7;
+  margin-top: 8px !important;
+  padding: 16px 4px 6px !important;
+}
+
+/* ── Mobile adjustments ── */
+@media (max-width: 900px) {
+  .detail-panel-body {
+    padding: 16px 18px 20px;
+    min-height: 120px;
+  }
+
+  .detail-tab-bar {
+    /* mantiene el estilo base */
+  }
+
+  .dtab-icon { font-size: 15px; }
+  .dtab-label { font-size: 7px; letter-spacing: 0.4px; }
+
+  .nut-tab-bar { gap: 3px; padding: 3px; }
+  .nut-tab { padding: 8px 3px 7px; }
+  .nut-tab-icon { font-size: 15px; }
+  .nut-tab-lbl { font-size: 7px; }
+
+  .group-exercise-name { font-size: 13px !important; }
 }

@@ -1560,6 +1560,49 @@ function updateDetailPanel(ex) {
   });
 
   document.getElementById('detail-alt').innerHTML = `<p>${ex.alternatives}</p>`;
+
+  // Resetear al tab de técnica al cambiar de ejercicio
+  switchDetailTab('tech');
+}
+
+// =============================================================================
+// TABS — PANEL DE DETALLES
+// =============================================================================
+function switchDetailTab(tabName) {
+  document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.dtab-panel').forEach(p => {
+    p.classList.remove('active');
+    p.style.animation = '';
+  });
+
+  const tab = document.querySelector(`.detail-tab[data-tab="${tabName}"]`);
+  const panel = document.getElementById(`dtab-panel-${tabName}`);
+  if (tab) tab.classList.add('active');
+  if (panel) {
+    panel.classList.add('active');
+    panel.style.animation = 'none';
+    requestAnimationFrame(() => { panel.style.animation = ''; });
+  }
+}
+
+// =============================================================================
+// TABS — NUTRICIÓN
+// =============================================================================
+function switchNutTab(nutName) {
+  document.querySelectorAll('.nut-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nut-panel').forEach(p => {
+    p.classList.remove('active');
+    p.style.animation = '';
+  });
+
+  const tab = document.querySelector(`.nut-tab[data-nut="${nutName}"]`);
+  const panel = document.getElementById(`nut-panel-${nutName}`);
+  if (tab) tab.classList.add('active');
+  if (panel) {
+    panel.classList.add('active');
+    panel.style.animation = 'none';
+    requestAnimationFrame(() => { panel.style.animation = ''; });
+  }
 }
 
 // =============================================================================
