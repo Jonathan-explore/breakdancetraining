@@ -1196,7 +1196,11 @@ const ROUTINE_DATA = {
 // =============================================================================
 // ESTADO DE LA APLICACIÓN
 // =============================================================================
-let currentDayKey = "lunes";
+function getTodayDayKey() {
+  const map = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
+  return map[new Date().getDay()];
+}
+let currentDayKey = localStorage.getItem('airflare_last_day_v1') || getTodayDayKey();
 let activeExerciseIndex = 0;
 let activeStepIndex = -1; // -1 = ningún paso seleccionado
 
@@ -1226,6 +1230,11 @@ let sessionHistory = safeParse('airflare_history_v1', []);
 // INICIALIZACIÓN
 // =============================================================================
 window.addEventListener('DOMContentLoaded', () => {
+  // Marcar el tab correcto al cargar (puede no ser lunes si el día guardado/hoy es otro)
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const initTab = document.getElementById(`tab-${currentDayKey}`);
+  if (initTab) initTab.classList.add('active');
+
   setupTabs();
   setupTimerControls();
   setupAudioToggles();
@@ -1267,12 +1276,17 @@ function setupTabs() {
     btn.addEventListener('click', () => {
       const day = btn.getAttribute('data-day');
       if (!day || day === currentDayKey) return;
+
+      // Resetear índices ANTES de cambiar de día para que stopAuto()
+      // no lea ejercicios del día anterior con el nuevo currentDayKey
+      activeExerciseIndex = 0;
+      activeStepIndex = -1;
       currentDayKey = day;
+      localStorage.setItem('airflare_last_day_v1', day);
+
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       resetTimer();
-      activeExerciseIndex = 0;
-      activeStepIndex = -1;
       animateDayTransition(() => renderDay(day));
     });
   });
