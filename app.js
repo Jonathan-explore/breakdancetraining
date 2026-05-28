@@ -1884,14 +1884,35 @@ function runRepsStep(step) {
   showRepsUI(step.reps);
   showPhaseChip('SERIES / REPS', 'chip-reps');
   showRepsDoneBtn(true);
+
+  // Mostrar el descanso que viene después para que el usuario sepa cuánto va a descansar
+  const ex = ROUTINE_DATA[currentDayKey]?.exercises[autoExIdx];
+  const nextStep = ex?.steps[autoStepIdx + 1];
+  if (nextStep?.type === 'rest') {
+    showInstructionText(`💤 Descanso tras esta serie: ${formatTime(nextStep.duration)} — pulsa LISTO cuando acabes.`);
+  }
 }
 
 function markRepsDoneAndAdvance() {
   markCurrentStepDone();
   showRepsDoneBtn(false);
   playChangeSound();
-  showPhaseChip('COMPLETADO', 'chip-done');
-  advanceTimeout = setTimeout(() => autoAdvanceToNext(false), 600);
+
+  // Si el siguiente paso es un descanso, saltamos la transición y arrancamos el cronómetro
+  // de descanso inmediatamente — el usuario no tiene que saber cuánto dura, el timer lo maneja
+  const ex = ROUTINE_DATA[currentDayKey]?.exercises[autoExIdx];
+  const nextStepIdx = autoStepIdx + 1;
+  const nextStep = ex?.steps[nextStepIdx];
+
+  if (nextStep?.type === 'rest') {
+    showPhaseChip('💤 DESCANSANDO…', 'chip-rest');
+    autoStepIdx = nextStepIdx;
+    autoMode = true; autoPaused = false;
+    advanceTimeout = setTimeout(() => processAutoStep(autoExIdx, autoStepIdx), 500);
+  } else {
+    showPhaseChip('✓ COMPLETADO', 'chip-done');
+    advanceTimeout = setTimeout(() => autoAdvanceToNext(false), 600);
+  }
 }
 
 // =============================================================================
