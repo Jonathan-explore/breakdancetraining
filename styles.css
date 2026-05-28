@@ -3006,3 +3006,388 @@ body {
   .tech-panel-body p,
   .tp-section p { font-size: 12px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SISTEMA DE COLOR DEFINITIVO — Colores mate + bordes luminosos
+   Diferenciación clara por sección y por bloque de entrenamiento
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── CATEGORÍAS — separadores con glow ── */
+
+.cat-calentamiento {
+  background: #fff3e0 !important;
+  border: 1.5px solid #e65100 !important;
+  color: #bf360c !important;
+  box-shadow: 0 0 16px rgba(230,81,0,0.22), 0 2px 6px rgba(230,81,0,0.10) !important;
+  font-weight: 900 !important;
+}
+.cat-calentamiento:hover {
+  background: #ffe8cc !important;
+  box-shadow: 0 0 24px rgba(230,81,0,0.32), 0 2px 6px rgba(230,81,0,0.14) !important;
+}
+
+.cat-entrenamiento {
+  background: #e3f0ff !important;
+  border: 1.5px solid #1565c0 !important;
+  color: #0d47a1 !important;
+  box-shadow: 0 0 16px rgba(21,101,192,0.22), 0 2px 6px rgba(21,101,192,0.10) !important;
+  font-weight: 900 !important;
+}
+.cat-entrenamiento:hover {
+  background: #cce0ff !important;
+  box-shadow: 0 0 24px rgba(21,101,192,0.32), 0 2px 6px rgba(21,101,192,0.14) !important;
+}
+
+.cat-postentrenamiento {
+  background: #e8f5e9 !important;
+  border: 1.5px solid #2e7d32 !important;
+  color: #1b5e20 !important;
+  box-shadow: 0 0 16px rgba(46,125,50,0.22), 0 2px 6px rgba(46,125,50,0.10) !important;
+  font-weight: 900 !important;
+}
+.cat-postentrenamiento:hover {
+  background: #d4edda !important;
+  box-shadow: 0 0 24px rgba(46,125,50,0.32), 0 2px 6px rgba(46,125,50,0.14) !important;
+}
+
+/* ── CONTENEDORES DE CATEGORÍA — fondo tintado suave ── */
+#cat-calentamiento    { background: rgba(230,81,0,0.025); border-radius: var(--radius-md); padding: 4px 0; }
+#cat-entrenamiento    { background: rgba(21,101,192,0.025); border-radius: var(--radius-md); padding: 4px 0; }
+#cat-postentrenamiento { background: rgba(46,125,50,0.025); border-radius: var(--radius-md); padding: 4px 0; }
+
+/* ── EXERCISE GROUP HEADERS — color mate por bloque ── */
+
+/* Base actualizado: más espacio y sombra interna limpia */
+.exercise-group-header {
+  border-left-width: 5px !important;
+  border-left-style: solid !important;
+}
+
+/* — CALENTAMIENTO — ámbar cálido */
+.exercise-group-header[data-block="block-calentamiento"] {
+  background: #fff8f0 !important;
+  border-color: rgba(230,119,0,0.25) !important;
+  border-left-color: #e67700 !important;
+}
+.exercise-group-header[data-block="block-calentamiento"]:hover {
+  background: #fff0de !important;
+  box-shadow: 0 0 12px rgba(230,119,0,0.18) !important;
+}
+.exercise-group-header[data-block="block-calentamiento"].active-group {
+  background: #fff0de !important;
+  border-color: rgba(230,119,0,0.5) !important;
+  box-shadow: 0 0 20px rgba(230,119,0,0.28), 0 2px 8px rgba(230,119,0,0.12) !important;
+}
+
+/* — ACTIVACIÓN — naranja fuego */
+.exercise-group-header[data-block="block-activacion"] {
+  background: #fff4ee !important;
+  border-color: rgba(212,95,0,0.25) !important;
+  border-left-color: #d45f00 !important;
+}
+.exercise-group-header[data-block="block-activacion"]:hover {
+  background: #ffe8d6 !important;
+  box-shadow: 0 0 12px rgba(212,95,0,0.18) !important;
+}
+.exercise-group-header[data-block="block-activacion"].active-group {
+  background: #ffe8d6 !important;
+  border-color: rgba(212,95,0,0.5) !important;
+  box-shadow: 0 0 20px rgba(212,95,0,0.28), 0 2px 8px rgba(212,95,0,0.12) !important;
+}
+
+/* — POWER — esmeralda intenso */
+.exercise-group-header[data-block="block-power"] {
+  background: #f0fff8 !important;
+  border-color: rgba(8,127,91,0.25) !important;
+  border-left-color: #087f5b !important;
+}
+.exercise-group-header[data-block="block-power"]:hover {
+  background: #d8f8ec !important;
+  box-shadow: 0 0 12px rgba(8,127,91,0.20) !important;
+}
+.exercise-group-header[data-block="block-power"].active-group {
+  background: #d8f8ec !important;
+  border-color: rgba(8,127,91,0.5) !important;
+  box-shadow: 0 0 22px rgba(8,127,91,0.30), 0 2px 8px rgba(8,127,91,0.12) !important;
+}
+
+/* — POWER+ — cian eléctrico */
+.exercise-group-header[data-block="block-power-plus"] {
+  background: #e0f7fa !important;
+  border-color: rgba(0,131,143,0.25) !important;
+  border-left-color: #00838f !important;
+}
+.exercise-group-header[data-block="block-power-plus"]:hover {
+  background: #c0eef4 !important;
+  box-shadow: 0 0 12px rgba(0,131,143,0.20) !important;
+}
+.exercise-group-header[data-block="block-power-plus"].active-group {
+  background: #c0eef4 !important;
+  border-color: rgba(0,131,143,0.5) !important;
+  box-shadow: 0 0 22px rgba(0,131,143,0.30), 0 2px 8px rgba(0,131,143,0.12) !important;
+}
+
+/* — FUERZA — azul eléctrico */
+.exercise-group-header[data-block="block-fuerza"] {
+  background: #e8f0fe !important;
+  border-color: rgba(21,101,192,0.25) !important;
+  border-left-color: #1565c0 !important;
+}
+.exercise-group-header[data-block="block-fuerza"]:hover {
+  background: #d0e3ff !important;
+  box-shadow: 0 0 12px rgba(21,101,192,0.20) !important;
+}
+.exercise-group-header[data-block="block-fuerza"].active-group {
+  background: #d0e3ff !important;
+  border-color: rgba(21,101,192,0.5) !important;
+  box-shadow: 0 0 22px rgba(21,101,192,0.30), 0 2px 8px rgba(21,101,192,0.12) !important;
+}
+
+/* — BAILE / TÉCNICA — púrpura vibrante */
+.exercise-group-header[data-block="block-baile"] {
+  background: #f3e5f5 !important;
+  border-color: rgba(123,31,162,0.25) !important;
+  border-left-color: #7b1fa2 !important;
+}
+.exercise-group-header[data-block="block-baile"]:hover {
+  background: #e8c8f0 !important;
+  box-shadow: 0 0 12px rgba(123,31,162,0.20) !important;
+}
+.exercise-group-header[data-block="block-baile"].active-group {
+  background: #e8c8f0 !important;
+  border-color: rgba(123,31,162,0.5) !important;
+  box-shadow: 0 0 22px rgba(123,31,162,0.28), 0 2px 8px rgba(123,31,162,0.12) !important;
+}
+
+/* — MENTAL — dorado campeón */
+.exercise-group-header[data-block="block-mental"] {
+  background: #fffde7 !important;
+  border-color: rgba(245,127,23,0.25) !important;
+  border-left-color: #f57f17 !important;
+}
+.exercise-group-header[data-block="block-mental"]:hover {
+  background: #fff8c0 !important;
+  box-shadow: 0 0 12px rgba(245,127,23,0.20) !important;
+}
+.exercise-group-header[data-block="block-mental"].active-group {
+  background: #fff8c0 !important;
+  border-color: rgba(245,127,23,0.5) !important;
+  box-shadow: 0 0 22px rgba(245,127,23,0.28), 0 2px 8px rgba(245,127,23,0.12) !important;
+}
+
+/* — RECUPERACIÓN — océano tranquilo */
+.exercise-group-header[data-block="block-recuperacion"] {
+  background: #e0f4ff !important;
+  border-color: rgba(2,119,189,0.25) !important;
+  border-left-color: #0277bd !important;
+}
+.exercise-group-header[data-block="block-recuperacion"]:hover {
+  background: #c0e8f8 !important;
+  box-shadow: 0 0 12px rgba(2,119,189,0.20) !important;
+}
+.exercise-group-header[data-block="block-recuperacion"].active-group {
+  background: #c0e8f8 !important;
+  border-color: rgba(2,119,189,0.5) !important;
+  box-shadow: 0 0 22px rgba(2,119,189,0.28), 0 2px 8px rgba(2,119,189,0.12) !important;
+}
+
+/* — POWER TEST — rojo peligro */
+.exercise-group-header[data-block="block-powertest"] {
+  background: #ffebee !important;
+  border-color: rgba(198,40,40,0.25) !important;
+  border-left-color: #c62828 !important;
+}
+.exercise-group-header[data-block="block-powertest"]:hover {
+  background: #ffcdd2 !important;
+  box-shadow: 0 0 14px rgba(198,40,40,0.24) !important;
+}
+.exercise-group-header[data-block="block-powertest"].active-group {
+  background: #ffcdd2 !important;
+  border-color: rgba(198,40,40,0.55) !important;
+  box-shadow: 0 0 24px rgba(198,40,40,0.34), 0 2px 8px rgba(198,40,40,0.14) !important;
+}
+
+/* — SUEÑO — índigo nocturno */
+.exercise-group-header[data-block="block-sueno"] {
+  background: #ede7f6 !important;
+  border-color: rgba(69,39,160,0.25) !important;
+  border-left-color: #4527a0 !important;
+}
+.exercise-group-header[data-block="block-sueno"]:hover {
+  background: #d7cced !important;
+  box-shadow: 0 0 12px rgba(69,39,160,0.20) !important;
+}
+.exercise-group-header[data-block="block-sueno"].active-group {
+  background: #d7cced !important;
+  border-color: rgba(69,39,160,0.5) !important;
+  box-shadow: 0 0 22px rgba(69,39,160,0.28), 0 2px 8px rgba(69,39,160,0.12) !important;
+}
+
+/* — VUELTA CALMA — pizarra serena */
+.exercise-group-header[data-block="block-vueltacalma"] {
+  background: #f5f5f5 !important;
+  border-color: rgba(84,110,122,0.25) !important;
+  border-left-color: #546e7a !important;
+}
+.exercise-group-header[data-block="block-vueltacalma"]:hover {
+  background: #e8ecee !important;
+  box-shadow: 0 0 12px rgba(84,110,122,0.18) !important;
+}
+.exercise-group-header[data-block="block-vueltacalma"].active-group {
+  background: #e8ecee !important;
+  border-color: rgba(84,110,122,0.45) !important;
+  box-shadow: 0 0 20px rgba(84,110,122,0.24), 0 2px 8px rgba(84,110,122,0.10) !important;
+}
+
+/* — MOVILIDAD — jade refrescante */
+.exercise-group-header[data-block="block-movilidad"] {
+  background: #e0faf4 !important;
+  border-color: rgba(0,105,92,0.25) !important;
+  border-left-color: #00695c !important;
+}
+.exercise-group-header[data-block="block-movilidad"]:hover {
+  background: #c0f0e4 !important;
+  box-shadow: 0 0 12px rgba(0,105,92,0.20) !important;
+}
+.exercise-group-header[data-block="block-movilidad"].active-group {
+  background: #c0f0e4 !important;
+  border-color: rgba(0,105,92,0.5) !important;
+  box-shadow: 0 0 22px rgba(0,105,92,0.28), 0 2px 8px rgba(0,105,92,0.12) !important;
+}
+
+/* ── NOMBRES DE EJERCICIO — texto oscuro para legibilidad ── */
+.exercise-group-header[data-block] .group-exercise-name {
+  color: var(--text-primary) !important;
+}
+.exercise-group-header[data-block].active-group .group-exercise-name {
+  color: var(--text-pure) !important;
+  font-weight: 800 !important;
+}
+
+/* ── PANEL DE TÉCNICA — azul vivo ── */
+.tech-panel-body {
+  background: #e8f0fe !important;
+  border: 1.5px solid #1565c0 !important;
+  border-left: 4px solid #1565c0 !important;
+  box-shadow: 0 0 14px rgba(21,101,192,0.16) !important;
+}
+.tech-panel-body p,
+.tp-section p { color: #1a237e !important; }
+.tp-num { color: #1565c0 !important; }
+.tp-label { color: #1565c0 !important; }
+.tp-label-breath { color: #2e7d32 !important; }
+.tp-label-warn   { color: #c62828 !important; }
+.tp-error { color: #b71c1c !important; }
+
+/* ── STEP ROWS — diferenciados por tipo ── */
+.step-row.rest-step {
+  background: #e3f0ff !important;
+  border-left: 3px solid #1565c0 !important;
+  border-radius: var(--radius-sm) !important;
+}
+.step-row.rest-step .step-label-rest {
+  color: #0d47a1 !important;
+  font-style: normal !important;
+  font-weight: 600 !important;
+}
+.step-row.rest-step .step-time-badge {
+  background: #1565c0 !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 800 !important;
+}
+
+.step-row.reps-step {
+  border-left: 3px solid #7b1fa2 !important;
+}
+
+.step-row.step-active {
+  background: rgba(212,95,0,0.08) !important;
+  border-left-color: var(--orange) !important;
+  border-color: rgba(212,95,0,0.30) !important;
+  box-shadow: 0 0 10px rgba(212,95,0,0.14) !important;
+}
+
+/* ── BADGES DE BLOQUE — colores saturados ── */
+.block-calentamiento  { background: #fff0d4 !important; color: #b84d00 !important; border: 1px solid rgba(184,77,0,0.3) !important; }
+.block-activacion     { background: #ffe8d6 !important; color: #c84800 !important; border: 1px solid rgba(200,72,0,0.3) !important; }
+.block-power          { background: #d6f5e8 !important; color: #065f46 !important; border: 1px solid rgba(6,95,70,0.3) !important; }
+.block-power-plus     { background: #cdf7f6 !important; color: #00656b !important; border: 1px solid rgba(0,101,107,0.3) !important; }
+.block-fuerza         { background: #d8e8fe !important; color: #1a4e96 !important; border: 1px solid rgba(26,78,150,0.3) !important; }
+.block-baile          { background: #f0d8f8 !important; color: #6a1580 !important; border: 1px solid rgba(106,21,128,0.3) !important; }
+.block-mental         { background: #fff8c0 !important; color: #8a5500 !important; border: 1px solid rgba(138,85,0,0.3) !important; }
+.block-recuperacion   { background: #c8e8f8 !important; color: #014f86 !important; border: 1px solid rgba(1,79,134,0.3) !important; }
+.block-powertest      { background: #ffd4d4 !important; color: #9b1c1c !important; border: 1px solid rgba(155,28,28,0.3) !important; }
+.block-sueno, .block-sue\00F1o { background: #e4d8f4 !important; color: #38257a !important; border: 1px solid rgba(56,37,122,0.3) !important; }
+.block-vueltacalma    { background: #e8ecee !important; color: #3a5260 !important; border: 1px solid rgba(58,82,96,0.3) !important; }
+.block-movilidad      { background: #c6f0e8 !important; color: #004d40 !important; border: 1px solid rgba(0,77,64,0.3) !important; }
+
+/* ── STEP COUNT BADGE — más visible ── */
+.group-step-count {
+  background: rgba(0,0,0,0.06) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid rgba(0,0,0,0.12) !important;
+  font-weight: 800 !important;
+}
+.group-step-count.all-done {
+  background: #d6f5e8 !important;
+  color: #065f46 !important;
+  border-color: rgba(6,95,70,0.35) !important;
+  box-shadow: 0 0 8px rgba(6,95,70,0.18) !important;
+}
+
+/* ── COLLAPSE ICON — color por bloque ── */
+.exercise-group-header[data-block="block-calentamiento"].active-group  .group-collapse-icon { color: #b84d00 !important; border-color: rgba(184,77,0,0.4) !important; background: rgba(184,77,0,0.1) !important; }
+.exercise-group-header[data-block="block-activacion"].active-group     .group-collapse-icon { color: #c84800 !important; border-color: rgba(200,72,0,0.4) !important; background: rgba(200,72,0,0.1) !important; }
+.exercise-group-header[data-block="block-power"].active-group          .group-collapse-icon { color: #065f46 !important; border-color: rgba(6,95,70,0.4) !important; background: rgba(6,95,70,0.1) !important; }
+.exercise-group-header[data-block="block-fuerza"].active-group         .group-collapse-icon { color: #1a4e96 !important; border-color: rgba(26,78,150,0.4) !important; background: rgba(26,78,150,0.1) !important; }
+.exercise-group-header[data-block="block-baile"].active-group          .group-collapse-icon { color: #6a1580 !important; border-color: rgba(106,21,128,0.4) !important; background: rgba(106,21,128,0.1) !important; }
+.exercise-group-header[data-block="block-powertest"].active-group      .group-collapse-icon { color: #9b1c1c !important; border-color: rgba(155,28,28,0.4) !important; background: rgba(155,28,28,0.1) !important; }
+
+/* ── STEP TIME & REPS BADGES — más vividos ── */
+.step-time-badge {
+  background: rgba(0,0,0,0.06) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid rgba(0,0,0,0.12) !important;
+  font-weight: 800 !important;
+}
+.step-reps-badge {
+  background: #f0d8f8 !important;
+  color: #6a1580 !important;
+  border: 1px solid rgba(106,21,128,0.28) !important;
+  font-weight: 800 !important;
+}
+
+/* ── NUTRICIÓN — colores más vivos ── */
+.nut-pre    { background: #fff8f0 !important; border-left-color: #e65100 !important; border-color: rgba(230,81,0,0.3) !important; }
+.nut-intra  { background: #e3f0ff !important; border-left-color: #1565c0 !important; border-color: rgba(21,101,192,0.3) !important; }
+.nut-post   { background: #ede7f6 !important; border-left-color: #4527a0 !important; border-color: rgba(69,39,160,0.3) !important; }
+.nut-dinner { background: #e8f5e9 !important; border-left-color: #2e7d32 !important; border-color: rgba(46,125,50,0.3) !important; }
+
+.nut-pre .nut-label    { color: #bf360c !important; }
+.nut-intra .nut-label  { color: #0d47a1 !important; }
+.nut-post .nut-label   { color: #311b92 !important; }
+.nut-dinner .nut-label { color: #1b5e20 !important; }
+
+/* ── SECTION TITLES — más vivos ── */
+.timeline-section .section-title {
+  color: #b84d00 !important;
+  border-left-color: #e65100 !important;
+  text-shadow: none;
+}
+.nutrition-section .section-title {
+  color: #1b5e20 !important;
+  border-left-color: #2e7d32 !important;
+}
+
+/* ── METRIC CARDS — fondo limpio con borde sutil ── */
+.metric-card {
+  border: 1.5px solid rgba(0,0,0,0.10) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+}
+
+/* Mobile touch — mantener colores en touch devices */
+@media (hover: none) {
+  .exercise-group-header[data-block]:hover { background: inherit !important; box-shadow: none !important; }
+  .exercise-group-header[data-block]:active { opacity: 0.92 !important; transform: scale(0.99) !important; }
+}
