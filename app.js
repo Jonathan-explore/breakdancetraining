@@ -1205,17 +1205,22 @@ let timerSecondsLeft = 0;
 
 let restTimerInterval = null;
 
+function safeParse(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+  catch { return fallback; }
+}
+
 // Completados: { "lunes": ["lu_0_0", "lu_0_2", ...], "martes": [...], ... }
-let completedSteps = JSON.parse(localStorage.getItem('airflare_completed_steps_v2')) || {};
+let completedSteps = safeParse('airflare_completed_steps_v2', {});
 
 // Colapso de ejercicios: { "lunes_0": false, "lunes_1": true, ... } (true = colapsado)
-let collapsedState = JSON.parse(localStorage.getItem('airflare_collapsed_v2')) || {};
+let collapsedState = safeParse('airflare_collapsed_v2', {});
 
 // Notas por día: { "lunes": "texto libre...", "martes": "..." }
-let dayNotes = JSON.parse(localStorage.getItem('airflare_notes_v1')) || {};
+let dayNotes = safeParse('airflare_notes_v1', {});
 
 // Historial de sesiones guardadas: [{ id, date, time, dayKey, notes, stats... }, ...]
-let sessionHistory = JSON.parse(localStorage.getItem('airflare_history_v1')) || [];
+let sessionHistory = safeParse('airflare_history_v1', []);
 
 // =============================================================================
 // INICIALIZACIÓN
@@ -2466,7 +2471,9 @@ function exportCSV() {
 
 function escapeCSV(val) {
   if (val === null || val === undefined) return '';
-  const str = String(val);
+  let str = String(val);
+  // Prevent formula injection in Excel/Google Sheets
+  if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;
   if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
     return '"' + str.replace(/"/g, '""') + '"';
   }
@@ -2479,17 +2486,19 @@ function importData(file) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
+      const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+      if (!isObj(data)) throw new Error('Formato inválido');
       if (!data.completedSteps && !data.collapsedState && !data.sessions) throw new Error('Formato inválido');
 
-      if (data.completedSteps) {
+      if (isObj(data.completedSteps)) {
         completedSteps = data.completedSteps;
         localStorage.setItem('airflare_completed_steps_v2', JSON.stringify(completedSteps));
       }
-      if (data.collapsedState) {
+      if (isObj(data.collapsedState)) {
         collapsedState = data.collapsedState;
         localStorage.setItem('airflare_collapsed_v2', JSON.stringify(collapsedState));
       }
-      if (data.notes) {
+      if (isObj(data.notes)) {
         dayNotes = data.notes;
         localStorage.setItem('airflare_notes_v1', JSON.stringify(dayNotes));
       }
@@ -2497,12 +2506,12 @@ function importData(file) {
         sessionHistory = data.sessions;
         localStorage.setItem('airflare_history_v1', JSON.stringify(sessionHistory));
       }
-      if (data.preferences) {
-        if (data.preferences.sound !== undefined) {
+      if (isObj(data.preferences)) {
+        if (typeof data.preferences.sound === 'boolean') {
           document.getElementById('toggle-sound').checked = data.preferences.sound;
           localStorage.setItem('pref_sound', data.preferences.sound);
         }
-        if (data.preferences.voice !== undefined) {
+        if (typeof data.preferences.voice === 'boolean') {
           document.getElementById('toggle-voice').checked = data.preferences.voice;
           localStorage.setItem('pref_voice', data.preferences.voice);
         }
