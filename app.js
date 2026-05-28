@@ -1345,12 +1345,14 @@ function renderTimeline(dayKey, exercises) {
     if (category !== lastCategory) {
       lastCategory = category;
       const sep = document.createElement('div');
-      sep.className = 'block-category-separator';
+      const catClass = category.toLowerCase().replace(/-/g, '');
+      sep.className = `block-category-separator cat-${catClass}`;
       const icons = { 'CALENTAMIENTO': '🔥', 'ENTRENAMIENTO': '💪', 'POST-ENTRENAMIENTO': '🌙' };
       sep.innerHTML = `<span class="block-cat-icon">${icons[category] || ''}</span><span>${category}</span>`;
       container.appendChild(sep);
     }
     const groupKey = `${dayKey}_${exIdx}`;
+    if (collapsedState[groupKey] === undefined) collapsedState[groupKey] = true;
     const isCollapsed = collapsedState[groupKey] === true;
     const completedCount = ex.steps.filter(s => completedSteps[dayKey].includes(s.id)).length;
     const totalSteps = ex.steps.filter(s => s.type !== 'rest').length;
@@ -1358,6 +1360,7 @@ function renderTimeline(dayKey, exercises) {
     // —— CABECERA DEL EJERCICIO ——
     const header = document.createElement('div');
     header.className = `exercise-group-header ${exIdx === activeExerciseIndex ? 'active-group' : ''}`;
+    header.setAttribute('data-block', getBlockClass(ex.block));
     header.style.animationDelay = `${exIdx * 0.04}s`;
     header.style.animation = `fadeUp 0.35s cubic-bezier(0.16,1,0.3,1) ${exIdx * 0.04}s both`;
     header.innerHTML = `
