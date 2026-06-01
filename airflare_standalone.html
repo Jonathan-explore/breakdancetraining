@@ -5571,6 +5571,12 @@ let dayNotes = safeParse('airflare_notes_v1', {});
 // Historial de sesiones guardadas: [{ id, date, time, dayKey, notes, stats... }, ...]
 let sessionHistory = safeParse('airflare_history_v1', []);
 
+// Estado de categorías expandidas: { "lunes_calentamiento": true, ... } (true = expandido)
+let categoryState = safeParse('airflare_cat_v1', {});
+
+// Último ejercicio/paso activo: { dayKey, exIdx, stepIdx }
+let savedActive = safeParse('airflare_active_v1', null);
+
 // =============================================================================
 // INICIALIZACIÓN
 // =============================================================================
@@ -5743,8 +5749,14 @@ function renderDay(dayKey) {
   // Cronograma
   renderTimeline(dayKey, data.exercises);
 
-  // Seleccionar primer paso por defecto
-  selectExerciseDetail(0);
+  // Restaurar última posición activa si corresponde al mismo día, si no ir al ejercicio 0
+  if (savedActive && savedActive.dayKey === dayKey && savedActive.stepIdx >= 0) {
+    selectStep(savedActive.exIdx, savedActive.stepIdx);
+  } else if (savedActive && savedActive.dayKey === dayKey) {
+    selectExerciseDetail(savedActive.exIdx);
+  } else {
+    selectExerciseDetail(0);
+  }
   updateProgressBar(dayKey, data.exercises);
 }
 
@@ -5784,10 +5796,12 @@ function renderTimeline(dayKey, exercises) {
       sep.addEventListener('click', () => toggleCategory(catClass, sep));
       container.appendChild(sep);
 
-      // Contenedor de ejercicios de esta categoría — colapsado por defecto
+      // Contenedor de ejercicios de esta categoría
+      const catExpanded = categoryState[dayKey + '_' + catClass] === true;
       currentCatContainer = document.createElement('div');
-      currentCatContainer.className = 'category-content collapsed-cat';
+      currentCatContainer.className = `category-content${catExpanded ? '' : ' collapsed-cat'}`;
       currentCatContainer.id = `cat-${catClass}`;
+      if (catExpanded) sep.classList.add('expanded');
       container.appendChild(currentCatContainer);
     }
 
@@ -5889,6 +5903,8 @@ function toggleCategory(catClass, sepEl) {
   if (!contentEl) return;
   const nowCollapsed = contentEl.classList.toggle('collapsed-cat');
   sepEl.classList.toggle('expanded', !nowCollapsed);
+  categoryState[currentDayKey + '_' + catClass] = !nowCollapsed;
+  localStorage.setItem('airflare_cat_v1', JSON.stringify(categoryState));
 }
 
 function expandCategory(catClass) {
@@ -5988,6 +6004,10 @@ function selectStep(exIdx, stepIdx) {
 
   // Actualizar panel de detalles (técnica del ejercicio padre)
   updateDetailPanel(ex);
+
+  // Persistir posición activa
+  savedActive = { dayKey: currentDayKey, exIdx, stepIdx };
+  localStorage.setItem('airflare_active_v1', JSON.stringify(savedActive));
 
   // Solo actualizar el display si NO estamos en modo automático
   if (!autoMode && !autoPaused) {
@@ -7347,10 +7367,14 @@ function confirmResetData() {
   collapsedState  = {};
   dayNotes        = {};
   sessionHistory  = [];
+  categoryState   = {};
+  savedActive     = null;
   localStorage.removeItem('airflare_completed_steps_v2');
   localStorage.removeItem('airflare_collapsed_v2');
   localStorage.removeItem('airflare_notes_v1');
   localStorage.removeItem('airflare_history_v1');
+  localStorage.removeItem('airflare_cat_v1');
+  localStorage.removeItem('airflare_active_v1');
   renderDay(currentDayKey);
   closeDataPanel();
   showToast('Todos los datos borrados');
