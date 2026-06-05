@@ -2270,6 +2270,34 @@ body {
   font-style: italic;
 }
 
+.general-notes-section {
+  margin-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 16px;
+}
+.general-notes-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-bottom: 4px;
+}
+.general-notes-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+.general-notes-textarea {
+  min-height: 120px;
+  border-color: rgba(var(--orange-rgb), 0.2);
+}
+.general-notes-textarea:focus {
+  border-color: rgba(var(--orange-rgb), 0.45);
+  box-shadow: 0 0 0 2px rgba(var(--orange-rgb), 0.08);
+}
+
 /* GUARDAR SESIÓN */
 .btn-save-session { border-color: rgba(var(--orange-rgb), 0.22); }
 .btn-save-session:hover {
@@ -3878,7 +3906,7 @@ body {
       <div class="brand-logo">
         <span class="logo-accent">AIRFLARE</span>
         <span class="logo-sub">DASHBOARD</span>
-        <span class="logo-version">V.Final</span>
+        <span class="logo-version">Peluchita 06/06</span>
       </div>
       
       <nav class="days-nav">
@@ -3987,12 +4015,12 @@ body {
         <!-- Estadísticas -->
         <div class="data-stat-row" id="data-stats"></div>
 
-        <!-- Exportar CSV -->
-        <button class="btn-data btn-data-csv" onclick="exportCSV()">
+        <!-- Exportar Excel -->
+        <button class="btn-data btn-data-csv" onclick="exportExcel()">
           <span class="btn-data-icon">📊</span>
           <div class="btn-data-text">
-            <strong>Exportar CSV / Excel</strong>
-            <span>Tabla de rendimiento para Google Sheets o Excel</span>
+            <strong>Exportar Excel (.xls)</strong>
+            <span>Historial completo + notas, formateado para Excel</span>
           </div>
         </button>
 
@@ -4023,6 +4051,14 @@ body {
             <span>Elimina progreso, notas e historial</span>
           </div>
         </button>
+
+        <!-- Notas personales generales -->
+        <div class="notes-section general-notes-section">
+          <div class="notes-label general-notes-label">📝 Notas personales</div>
+          <div class="general-notes-hint">Observaciones, objetivos, lesiones, PRs… Se incluyen en el Excel.</div>
+          <textarea class="notes-textarea general-notes-textarea" id="general-notes-input" rows="6"
+            placeholder="Escribe aquí tus observaciones generales, objetivos de la semana, notas sobre lesiones, récords personales..."></textarea>
+        </div>
 
       </div>
     </div>
@@ -5577,6 +5613,12 @@ let categoryState = safeParse('airflare_cat_v1', {});
 // Último ejercicio/paso activo: { dayKey, exIdx, stepIdx }
 let savedActive = safeParse('airflare_active_v1', null);
 
+// Fechas de último entrenamiento por día: { "lunes": "2026-06-01", ... }
+let trainedDates = safeParse('airflare_trained_dates_v1', {});
+
+// Notas personales generales (texto libre, descargable en Excel)
+let generalNotes = localStorage.getItem('airflare_general_notes_v1') || '';
+
 // =============================================================================
 // INICIALIZACIÓN
 // =============================================================================
@@ -5592,9 +5634,32 @@ window.addEventListener('DOMContentLoaded', () => {
   setupRipple();
   updateTodayIndicators();
   showIdleUI();
+  autoArchiveStaleData(); // archivar datos de días anteriores antes de renderizar
   renderDay(currentDayKey);
   updateAllDayMiniBars();
   if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
+
+  // Auto-guardar al salir o cuando la app va a segundo plano
+  // Al volver: re-sincronizar checkboxes desde localStorage (source of truth)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      onPageHide();
+    } else {
+      syncCheckboxesFromStorage();
+    }
+  });
+  window.addEventListener('pagehide', onPageHide);
+  window.addEventListener('pageshow', syncCheckboxesFromStorage);
+
+  // Advertencia si el navegador está en modo privado (no persiste localStorage)
+  try {
+    const testKey = '__airflare_test__';
+    localStorage.setItem(testKey, '1');
+    if (localStorage.getItem(testKey) !== '1') throw new Error();
+    localStorage.removeItem(testKey);
+  } catch (e) {
+    setTimeout(() => showToast('⚠️ Modo privado detectado: los datos no se guardarán al cerrar.', 'error'), 800);
+  }
 });
 
 // =============================================================================
@@ -6216,6 +6281,10 @@ function toggleStepCompleted(dayKey, stepId, exIdx, checkbox) {
   }
 
   localStorage.setItem('airflare_completed_steps_v2', JSON.stringify(completedSteps));
+
+  // Registrar fecha de entrenamiento para este día
+  trainedDates[dayKey] = new Date().toISOString().split('T')[0];
+  localStorage.setItem('airflare_trained_dates_v1', JSON.stringify(trainedDates));
 
   // Actualizar estilo de la fila
   const stepRows = document.querySelectorAll(`.step-row[data-ex="${exIdx}"]`);
@@ -7149,13 +7218,15 @@ function closeDataPanel() {
 
 function exportData() {
   const payload = {
-    version: 3,
+    version: 5,
     exportDate: new Date().toISOString(),
     app: 'Airflare Dashboard',
     completedSteps,
     collapsedState,
     notes: dayNotes,
     sessions: sessionHistory,
+    trainedDates,
+    generalNotes,
     preferences: {
       sound: document.getElementById('toggle-sound')?.checked ?? true,
       voice: document.getElementById('toggle-voice')?.checked ?? false
@@ -7247,70 +7318,326 @@ function saveSession() {
   openDataPanel();
 }
 
-function exportCSV() {
-  if (sessionHistory.length === 0) {
-    showToast('Guarda al menos una sesión primero', 'error');
-    return;
-  }
+// =============================================================================
+// AUTO-GUARDADO — persiste datos aunque el usuario no presione "Guardar sesión"
+// =============================================================================
+function autoSaveSessionSilent(dayKey, dateOverride) {
+  const dayData = ROUTINE_DATA[dayKey];
+  if (!dayData) return;
+  const completedIds = completedSteps[dayKey] || [];
+  if (completedIds.length === 0) return;
 
-  const header = [
-    'Fecha', 'Hora', 'Día', 'Tipo de Entrenamiento',
-    '% Día Completo', 'Tiempo Cronómetro (min)',
-    'Ejercicio', 'Bloque',
-    'Pasos Hechos', 'Pasos Total', '% Ejercicio', 'Tiempo Ejercicio (min)',
-    'Notas del Día'
-  ];
+  const dateStr = dateOverride || new Date().toISOString().split('T')[0];
 
-  const rows = [header.map(escapeCSV).join(',')];
+  // Evitar duplicados: si ya existe sesión para esta fecha+día, no guardar de nuevo
+  const alreadySaved = sessionHistory.some(s => s.date === dateStr && s.dayKey === dayKey);
+  if (alreadySaved) return;
 
-  sessionHistory.forEach(session => {
-    const baseFields = [
-      session.date,
-      session.time,
-      session.dayTitle,
-      escapeCSV(session.daySubtitle || ''),
-      session.stats.completionPct + '%',
-      session.stats.timerMinDone
-    ];
-    session.stats.exercises.forEach(ex => {
-      const row = [
-        ...baseFields,
-        escapeCSV(ex.name),
-        escapeCSV(ex.block || ''),
-        ex.stepsCompleted,
-        ex.stepsTotal,
-        ex.pct + '%',
-        ex.timerMin,
-        escapeCSV(session.notes || '')
-      ];
-      rows.push(row.join(','));
-    });
+  const notes = dayNotes[dayKey] || '';
+
+  let timerSecDone = 0, timerSecTotal = 0;
+  const exercisesDetail = dayData.exercises.map(ex => {
+    const checkable = ex.steps.filter(s => s.type !== 'rest');
+    const done = checkable.filter(s => completedIds.includes(s.id)).length;
+    const timerDone = ex.steps
+      .filter(s => s.type === 'timer' && completedIds.includes(s.id))
+      .reduce((acc, s) => acc + s.duration, 0);
+    const timerTotal = ex.steps
+      .filter(s => s.type === 'timer')
+      .reduce((acc, s) => acc + s.duration, 0);
+    timerSecDone  += timerDone;
+    timerSecTotal += timerTotal;
+    return {
+      name: ex.name,
+      block: ex.block,
+      stepsCompleted: done,
+      stepsTotal: checkable.length,
+      pct: checkable.length > 0 ? Math.round(done / checkable.length * 100) : 0,
+      timerMin: Math.round(timerDone / 60),
+      steps: ex.steps.map(s => ({
+        label: s.label,
+        type: s.type,
+        ...(s.type === 'timer' && { duration: s.duration }),
+        ...(s.type === 'reps'  && { reps: s.reps }),
+        ...(s.type !== 'rest'  && { completed: completedIds.includes(s.id) })
+      }))
+    };
   });
 
-  // BOM UTF-8 para compatibilidad con Excel en Windows
-  const csv  = '﻿' + rows.join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const allCheckable = dayData.exercises.flatMap(ex => ex.steps.filter(s => s.type !== 'rest'));
+  const totalDone    = allCheckable.filter(s => completedIds.includes(s.id)).length;
+  if (totalDone === 0) return;
+
+  const timeStr = dateOverride
+    ? '--:--'
+    : new Date().toTimeString().slice(0, 5);
+
+  const session = {
+    id: `${dateStr}_${dayKey}_auto_${Date.now()}`,
+    date: dateStr,
+    time: timeStr,
+    dayKey,
+    dayTitle: dayData.title,
+    daySubtitle: dayData.subtitle,
+    notes,
+    autoSaved: true,
+    stats: {
+      stepsCompleted: totalDone,
+      stepsTotal: allCheckable.length,
+      completionPct: allCheckable.length > 0 ? Math.round(totalDone / allCheckable.length * 100) : 0,
+      timerMinDone: Math.round(timerSecDone / 60),
+      timerMinTotal: Math.round(timerSecTotal / 60),
+      exercises: exercisesDetail
+    }
+  };
+
+  sessionHistory.push(session);
+  try {
+    localStorage.setItem('airflare_history_v1', JSON.stringify(sessionHistory));
+  } catch (e) {
+    sessionHistory.pop();
+  }
+}
+
+// Al abrir la app: archivar datos de días anteriores antes de que se pierdan
+function autoArchiveStaleData() {
+  const today = new Date().toISOString().split('T')[0];
+  let changed = false;
+
+  Object.keys(completedSteps).forEach(dayKey => {
+    const steps = completedSteps[dayKey];
+    if (!steps || steps.length === 0) return;
+    const trainedDate = trainedDates[dayKey];
+    if (!trainedDate || trainedDate === today) return; // sin fecha o es de hoy → no archivar
+
+    // Es de un día anterior → archivar silenciosamente y limpiar para nueva sesión
+    autoSaveSessionSilent(dayKey, trainedDate);
+    completedSteps[dayKey] = [];
+    changed = true;
+  });
+
+  if (changed) {
+    localStorage.setItem('airflare_completed_steps_v2', JSON.stringify(completedSteps));
+  }
+}
+
+// Al volver de segundo plano o desbloquear el teléfono:
+// re-leer localStorage y actualizar checkboxes sin re-renderizar toda la página
+function syncCheckboxesFromStorage() {
+  const saved = safeParse('airflare_completed_steps_v2', {});
+  // Si los datos en memoria ya coinciden, no hacer nada
+  const current = JSON.stringify(completedSteps[currentDayKey] || []);
+  const incoming = JSON.stringify(saved[currentDayKey] || []);
+  if (current === incoming) return;
+
+  completedSteps = saved;
+
+  const daySteps = saved[currentDayKey] || [];
+  const exercises = ROUTINE_DATA[currentDayKey]?.exercises;
+  if (!exercises) return;
+
+  // Actualizar cada checkbox en el DOM sin re-renderizar
+  document.querySelectorAll('.step-row').forEach(row => {
+    const exIdx  = parseInt(row.getAttribute('data-ex'));
+    const stepIdx = parseInt(row.getAttribute('data-step'));
+    const step = exercises[exIdx]?.steps[stepIdx];
+    if (!step || step.type === 'rest') return;
+
+    const done = daySteps.includes(step.id);
+    const checkbox = row.querySelector('input[type="checkbox"]');
+    if (checkbox) checkbox.checked = done;
+    row.classList.toggle('step-completed', done);
+  });
+
+  // Actualizar contadores y barra de progreso
+  exercises.forEach((_, exIdx) => updateGroupCounter(currentDayKey, exIdx));
+  updateProgressBar(currentDayKey, exercises);
+}
+
+// Al salir/ocultar la app: guardar progreso actual automáticamente
+function onPageHide() {
+  const today = new Date().toISOString().split('T')[0];
+  Object.keys(completedSteps).forEach(dayKey => {
+    const steps = completedSteps[dayKey];
+    if (steps && steps.length > 0) {
+      autoSaveSessionSilent(dayKey, today);
+    }
+  });
+}
+
+function exportExcel() {
+  const today = new Date().toISOString().split('T')[0];
+  const esc   = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  // ── helpers de celda ──────────────────────────────────────────────────────
+  const cell  = (v, s='') => `<td style="${s}">${esc(v)}</td>`;
+  const hcell = (v, span=1) => `<td colspan="${span}" style="background:#2d1b69;color:#fff;font-weight:bold;padding:7px 11px;font-size:11pt;border:1px solid #1a0a3c;">${esc(v)}</td>`;
+  const ccell = (v, s='') => `<td style="background:#4a3080;color:#fff;font-weight:bold;text-align:center;padding:5px 9px;border:1px solid #3a2060;font-size:9pt;${s}">${esc(v)}</td>`;
+  const blank = (cols) => `<tr><td colspan="${cols}" style="height:14px;border:none;"></td></tr>`;
+
+  // ── estilos de fila ───────────────────────────────────────────────────────
+  const BASE = 'padding:5px 9px;border:1px solid #ddd;font-size:9.5pt;vertical-align:middle;';
+  const ODD  = BASE + 'background:#f5f3ff;';
+  const EVN  = BASE + 'background:#ffffff;';
+  const DONE = BASE + 'background:#d4edda;';
+  const LOW  = BASE + 'background:#fff3cd;';
+  const NOTE = 'padding:6px 11px;border:1px solid #ffe082;background:#fffde7;font-size:9.5pt;vertical-align:top;';
+  const pctStyle = p => p >= 80 ? 'color:#155724;font-weight:bold;' : p >= 50 ? 'color:#856404;' : 'color:#721c24;';
+
+  // ── calcular resumen general ───────────────────────────────────────────────
+  const totalSessions   = sessionHistory.length;
+  const uniqueDates     = [...new Set(sessionHistory.map(s => s.date))].length;
+  const uniqueWeeks     = [...new Set(sessionHistory.map(s => {
+    const d = new Date(s.date); const jan4 = new Date(d.getFullYear(),0,4);
+    return d.getFullYear() + '-W' + Math.ceil(((d-jan4)/86400000 + jan4.getDay()+1)/7);
+  }))].length;
+  const avgPct  = totalSessions ? Math.round(sessionHistory.reduce((a,s) => a + s.stats.completionPct, 0) / totalSessions) : 0;
+  const totalStepsDone  = sessionHistory.reduce((a,s) => a + s.stats.stepsCompleted, 0);
+  const totalStepsTotal = sessionHistory.reduce((a,s) => a + s.stats.stepsTotal, 0);
+  const totalTimeDone   = sessionHistory.reduce((a,s) => a + s.stats.timerMinDone, 0);
+
+  let html = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="UTF-8">
+<style>
+body{font-family:Calibri,Arial,sans-serif;font-size:10pt;}
+table{border-collapse:collapse;width:100%;}
+</style>
+</head>
+<body>
+<table cellspacing="0" cellpadding="0">`;
+
+  // ════════════════════════════════════════════════════════════
+  // TÍTULO
+  // ════════════════════════════════════════════════════════════
+  html += `<tr><td colspan="9" style="background:#1a0a3c;color:#ff6b35;font-size:17pt;font-weight:bold;padding:13px 18px;border:none;letter-spacing:0.03em;">
+    🔥 AIRFLARE DASHBOARD — Historial de Entrenamiento
+  </td></tr>
+  <tr><td colspan="9" style="background:#1a0a3c;color:#aaa;font-size:9pt;padding:4px 18px 10px;border:none;">
+    Exportado el ${today} &nbsp;·&nbsp; ${totalSessions} sesiones registradas
+  </td></tr>`;
+  html += blank(9);
+
+  // ════════════════════════════════════════════════════════════
+  // RESUMEN GENERAL
+  // ════════════════════════════════════════════════════════════
+  html += `<tr>${hcell('📊  RESUMEN GENERAL', 9)}</tr>`;
+  html += `<tr>
+    ${ccell('Sesiones')}${ccell('Fechas activas')}${ccell('Semanas activas')}
+    ${ccell('% Promedio')}${ccell('Pasos hechos')}${ccell('Pasos totales')}
+    ${ccell('Tiempo total (min)')}${ccell('')}${ccell('')}
+  </tr>
+  <tr>
+    ${cell(totalSessions, ODD+'text-align:center;font-weight:bold;font-size:13pt;')}
+    ${cell(uniqueDates,   ODD+'text-align:center;')}
+    ${cell(uniqueWeeks,   ODD+'text-align:center;')}
+    ${cell(avgPct+'%',    ODD+'text-align:center;'+pctStyle(avgPct))}
+    ${cell(totalStepsDone,ODD+'text-align:center;')}
+    ${cell(totalStepsTotal,ODD+'text-align:center;')}
+    ${cell(totalTimeDone, ODD+'text-align:center;')}
+    <td style="${ODD}"></td><td style="${ODD}"></td>
+  </tr>`;
+  html += blank(9);
+
+  // ════════════════════════════════════════════════════════════
+  // HISTORIAL DE SESIONES
+  // ════════════════════════════════════════════════════════════
+  if (totalSessions > 0) {
+    html += `<tr>${hcell('📅  HISTORIAL DE SESIONES', 9)}</tr>`;
+    html += `<tr>
+      ${ccell('Fecha')}${ccell('Hora')}${ccell('Día')}${ccell('Tipo')}
+      ${ccell('% Completado')}${ccell('Pasos')}${ccell('Tiempo (min)')}
+      ${ccell('Guardado')}${ccell('Notas del día')}
+    </tr>`;
+    [...sessionHistory].reverse().forEach((s, i) => {
+      const rs = i % 2 === 0 ? (s.stats.completionPct >= 80 ? DONE : (s.stats.completionPct < 50 ? LOW : ODD)) : EVN;
+      html += `<tr>
+        ${cell(s.date, rs+'font-weight:bold;')}
+        ${cell(s.time, rs+'text-align:center;')}
+        ${cell(s.dayTitle, rs)}
+        ${cell(s.daySubtitle||'', rs+'color:#555;font-size:8.5pt;')}
+        ${cell(s.stats.completionPct+'%', rs+'text-align:center;'+pctStyle(s.stats.completionPct))}
+        ${cell(s.stats.stepsCompleted+'/'+s.stats.stepsTotal, rs+'text-align:center;')}
+        ${cell(s.stats.timerMinDone, rs+'text-align:center;')}
+        ${cell(s.autoSaved ? 'Auto' : 'Manual', rs+'text-align:center;font-size:8pt;color:#666;font-style:italic;')}
+        ${cell(s.notes||'', rs+'color:#555;font-size:8.5pt;')}
+      </tr>`;
+    });
+    html += blank(9);
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // DETALLE POR EJERCICIO
+  // ════════════════════════════════════════════════════════════
+  if (totalSessions > 0) {
+    html += `<tr>${hcell('💪  DETALLE POR EJERCICIO', 9)}</tr>`;
+    html += `<tr>
+      ${ccell('Fecha')}${ccell('Día')}${ccell('Ejercicio')}${ccell('Bloque')}
+      ${ccell('Pasos hechos')}${ccell('Pasos total')}${ccell('% Ejercicio')}
+      ${ccell('Tiempo (min)')}${ccell('')}
+    </tr>`;
+    let rowIdx = 0;
+    [...sessionHistory].reverse().forEach(s => {
+      (s.stats.exercises || []).forEach(ex => {
+        const rs = rowIdx % 2 === 0 ? ODD : EVN;
+        html += `<tr>
+          ${cell(s.date,          rs)}
+          ${cell(s.dayTitle,      rs)}
+          ${cell(ex.name,         rs+'font-weight:bold;')}
+          ${cell(ex.block||'',    rs+'color:#555;font-size:8.5pt;')}
+          ${cell(ex.stepsCompleted, rs+'text-align:center;')}
+          ${cell(ex.stepsTotal,   rs+'text-align:center;')}
+          ${cell(ex.pct+'%',      rs+'text-align:center;'+pctStyle(ex.pct))}
+          ${cell(ex.timerMin,     rs+'text-align:center;')}
+          <td style="${rs}"></td>
+        </tr>`;
+        rowIdx++;
+      });
+    });
+    html += blank(9);
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // NOTAS POR DÍA
+  // ════════════════════════════════════════════════════════════
+  const noteDays = Object.keys(dayNotes).filter(k => (dayNotes[k]||'').trim());
+  if (noteDays.length > 0) {
+    html += `<tr>${hcell('📓  NOTAS POR DÍA DE ENTRENAMIENTO', 9)}</tr>`;
+    html += `<tr>${ccell('Día', 2)}${ccell('Nota del entrenamiento', 7)}</tr>`;
+    noteDays.forEach((k, i) => {
+      const rs = i % 2 === 0 ? NOTE : NOTE+'background:#fffbea;';
+      const label = ROUTINE_DATA[k]?.title || k;
+      html += `<tr>
+        <td colspan="2" style="${NOTE}font-weight:bold;">${esc(label)}</td>
+        <td colspan="7" style="${NOTE}">${esc(dayNotes[k]).replace(/\n/g,'<br>')}</td>
+      </tr>`;
+    });
+    html += blank(9);
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // NOTAS PERSONALES GENERALES
+  // ════════════════════════════════════════════════════════════
+  html += `<tr>${hcell('📝  NOTAS PERSONALES', 9)}</tr>`;
+  const gnText = (generalNotes || '').trim() || '(sin notas)';
+  html += `<tr><td colspan="9" style="${NOTE}white-space:pre-wrap;font-size:10pt;line-height:1.6;">${esc(gnText).replace(/\n/g,'<br>')}</td></tr>`;
+  html += blank(9);
+
+  html += `</table></body></html>`;
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  const date = new Date().toISOString().split('T')[0];
   a.href     = url;
-  a.download = `airflare-historial-${date}.csv`;
+  a.download = `airflare-historial-${today}.xls`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('CSV exportado — ábrelo en Excel o Sheets ✓');
-}
-
-function escapeCSV(val) {
-  if (val === null || val === undefined) return '';
-  let str = String(val);
-  // Prevent formula injection in Excel/Google Sheets
-  if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;
-  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
-    return '"' + str.replace(/"/g, '""') + '"';
-  }
-  return str;
+  showToast('Excel exportado ✓ — ábrelo con Excel o Google Sheets');
 }
 
 function importData(file) {
@@ -7338,6 +7665,16 @@ function importData(file) {
       if (Array.isArray(data.sessions)) {
         sessionHistory = data.sessions;
         localStorage.setItem('airflare_history_v1', JSON.stringify(sessionHistory));
+      }
+      if (isObj(data.trainedDates)) {
+        trainedDates = data.trainedDates;
+        localStorage.setItem('airflare_trained_dates_v1', JSON.stringify(trainedDates));
+      }
+      if (typeof data.generalNotes === 'string') {
+        generalNotes = data.generalNotes;
+        localStorage.setItem('airflare_general_notes_v1', generalNotes);
+        const gn = document.getElementById('general-notes-input');
+        if (gn) gn.value = generalNotes;
       }
       if (isObj(data.preferences)) {
         if (typeof data.preferences.sound === 'boolean') {
@@ -7369,12 +7706,18 @@ function confirmResetData() {
   sessionHistory  = [];
   categoryState   = {};
   savedActive     = null;
+  trainedDates    = {};
+  generalNotes    = '';
   localStorage.removeItem('airflare_completed_steps_v2');
   localStorage.removeItem('airflare_collapsed_v2');
   localStorage.removeItem('airflare_notes_v1');
   localStorage.removeItem('airflare_history_v1');
   localStorage.removeItem('airflare_cat_v1');
   localStorage.removeItem('airflare_active_v1');
+  localStorage.removeItem('airflare_trained_dates_v1');
+  localStorage.removeItem('airflare_general_notes_v1');
+  const gn = document.getElementById('general-notes-input');
+  if (gn) gn.value = '';
   renderDay(currentDayKey);
   closeDataPanel();
   showToast('Todos los datos borrados');
@@ -7402,14 +7745,24 @@ window.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('btn-export-open');
   if (btn) btn.addEventListener('click', openDataPanel);
 
-  // Auto-guardar notas mientras el usuario escribe
+  // Auto-guardar notas del día mientras el usuario escribe
   const notesInput = document.getElementById('day-notes-input');
   if (notesInput) {
     notesInput.addEventListener('input', () => {
       dayNotes[currentDayKey] = notesInput.value;
       try {
         localStorage.setItem('airflare_notes_v1', JSON.stringify(dayNotes));
-      } catch (e) { /* cuota llena — nota queda en memoria hasta exportar */ }
+      } catch (e) { /* cuota llena */ }
+    });
+  }
+
+  // Auto-guardar notas personales generales
+  const generalInput = document.getElementById('general-notes-input');
+  if (generalInput) {
+    generalInput.value = generalNotes;
+    generalInput.addEventListener('input', () => {
+      generalNotes = generalInput.value;
+      localStorage.setItem('airflare_general_notes_v1', generalNotes);
     });
   }
 });
