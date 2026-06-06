@@ -3843,6 +3843,40 @@ body {
 }
 .btn-exercise-info:active { transform: scale(0.95); }
 
+/* ── BOTÓN CÁMARA EN PANEL TIMER ─────────────────────────────────────────── */
+.btn-timer-cam {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(var(--orange-rgb), 0.35);
+  background: rgba(var(--orange-rgb), 0.08);
+  color: var(--orange);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur-fast), transform var(--dur-fast), box-shadow var(--dur-fast);
+  margin-top: 2px;
+  line-height: 1;
+}
+.btn-timer-cam:hover {
+  background: rgba(var(--orange-rgb), 0.18);
+  box-shadow: 0 0 10px rgba(var(--orange-rgb), 0.25);
+  transform: scale(1.10);
+}
+.btn-timer-cam:active { transform: scale(0.93); }
+.btn-timer-cam.recording {
+  background: rgba(211,47,47,0.15);
+  border-color: rgba(211,47,47,0.5);
+  animation: camRecPulse 1.2s ease-in-out infinite;
+}
+@keyframes camRecPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(211,47,47,0.4); }
+  50%       { box-shadow: 0 0 0 6px rgba(211,47,47,0); }
+}
+
 /* ── MODAL INFO EJERCICIO ──────────────────────────────────────────────────── */
 .exercise-info-modal-overlay {
   position: fixed;
@@ -4309,6 +4343,7 @@ body {
               <div class="timer-name-row">
                 <h3 id="timer-ex-name">Selecciona un ejercicio</h3>
                 <button class="btn-exercise-info" id="btn-exercise-info" onclick="openExerciseInfoModal()" title="Ver información del ejercicio" style="display:none">ℹ</button>
+                <button class="btn-timer-cam" id="btn-timer-cam" onclick="openCameraFromTimer()" title="Grabar ejercicio">📹</button>
               </div>
               <p id="timer-ex-target" class="text-secondary">Pulsa ▶ en cualquier paso para iniciar la secuencia automática</p>
             </div>
@@ -7944,11 +7979,41 @@ function shouldShowCamera(ex) {
   return false;
 }
 
+// Abre la cámara desde el botón siempre visible del panel de timer
+function openCameraFromTimer() {
+  const dayKey = currentDayKey;
+  // Prefiere el ejercicio que está en curso (auto mode), sino el activo seleccionado
+  const exIdx = (autoMode || autoPaused) ? autoExIdx : activeExerciseIndex;
+  const ex = ROUTINE_DATA[dayKey]?.exercises[exIdx];
+  const exName = ex ? ex.name : 'Entrenamiento';
+
+  _camLabel = exName;
+  document.getElementById('camera-title').textContent = `📹 ${exName}`;
+
+  _setCamState('idle');
+  document.getElementById('camera-overlay').style.display = 'flex';
+
+  const camBtn = document.getElementById('btn-timer-cam');
+
+  navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+    audio: false
+  }).then(stream => {
+    _camStream = stream;
+    const preview = document.getElementById('cam-preview');
+    preview.srcObject = stream;
+    if (camBtn) camBtn.classList.add('recording');
+  }).catch(err => {
+    showToast('No se pudo acceder a la cámara: ' + err.message, 'error');
+    closeCamera();
+  });
+}
+
 function openCamera(dayKey, exIdx) {
   const ex = ROUTINE_DATA[dayKey]?.exercises[exIdx];
   if (!ex) return;
   const dayTitle = ROUTINE_DATA[dayKey]?.title || dayKey;
-  _camLabel = `${dayKey}_${ex.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-]/g,'').toLowerCase()}`;
+  _camLabel = ex.name;  // nombre legible para el archivo
   document.getElementById('camera-title').textContent = `📹 ${dayTitle} · ${ex.name}`;
 
   _setCamState('idle');
@@ -7972,6 +8037,8 @@ function closeCamera() {
   _clearPlayback();
   _stopRecTimer();
   document.getElementById('camera-overlay').style.display = 'none';
+  const camBtn = document.getElementById('btn-timer-cam');
+  if (camBtn) camBtn.classList.remove('recording');
 }
 
 function startCameraRecording() {
@@ -8021,9 +8088,11 @@ function downloadCamVideo() {
   if (!vid.src) return;
   const ext = _camMimeType.includes('mp4') ? 'mp4' : 'webm';
   const date = new Date().toISOString().split('T')[0];
+  // Nombre legible: quita solo los caracteres prohibidos en nombres de archivo
+  const safeName = (_camLabel || 'video').replace(/[\/\\:*?"<>|]/g, '').trim();
   const a = document.createElement('a');
   a.href = vid.src;
-  a.download = `${_camLabel}_${date}.${ext}`;
+  a.download = `${safeName}_${date}.${ext}`;
   a.click();
   showToast('Vídeo descargado ✓');
 }
