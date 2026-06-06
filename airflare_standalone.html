@@ -2341,6 +2341,17 @@ body {
 .camera-video-wrap video {
   width: 100%; height: 100%; object-fit: cover; display: block;
 }
+/* Preview en espejo (cámara frontal) — el vídeo grabado NO se invierte */
+#cam-preview { transform: scaleX(-1); }
+/* Botón play/pausa en playback */
+.btn-cam-play {
+  width: 100%; padding: 13px; border-radius: 10px;
+  background: rgba(255,255,255,0.1); color: #fff;
+  border: 1px solid rgba(255,255,255,0.2); font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: background 0.15s;
+}
+.btn-cam-play:hover { background: rgba(255,255,255,0.18); }
+.btn-cam-rec[disabled] { opacity: 0.45; cursor: not-allowed; }
 .rec-badge {
   position: absolute; top: 10px; left: 10px;
   background: rgba(0,0,0,0.65); color: #fff;
@@ -4233,16 +4244,17 @@ body {
         <!-- Estado: listo para grabar -->
         <div class="camera-controls" id="cam-state-idle">
           <p class="cam-hint">Sin audio — la música seguirá sonando</p>
-          <button class="btn-cam-rec" onclick="startCameraRecording()">⏺ Grabar</button>
+          <button class="btn-cam-rec" id="btn-cam-rec" onclick="startCameraRecording()" disabled>⏺ Cargando cámara…</button>
         </div>
 
         <!-- Estado: grabando -->
         <div class="camera-controls" id="cam-state-recording" style="display:none">
-          <button class="btn-cam-stop" onclick="stopCameraRecording()">⏹ Detener</button>
+          <button class="btn-cam-stop" onclick="stopCameraRecording()">⏹ Detener grabación</button>
         </div>
 
         <!-- Estado: reproduciendo -->
         <div class="camera-controls" id="cam-state-playback" style="display:none">
+          <button class="btn-cam-play" id="btn-cam-play" onclick="toggleCamPlayback()">▶ Reproducir</button>
           <div class="speed-row">
             <button class="btn-speed active" id="btn-spd-1" onclick="setCamSpeed(1)">1×</button>
             <button class="btn-speed" id="btn-spd-0.5" onclick="setCamSpeed(0.5)">½× lento</button>
@@ -7972,6 +7984,8 @@ let _camMimeType  = 'video/webm';
 let _camLabel     = 'airflare';
 let _camTimerInt  = null;
 let _camSecs      = 0;
+let _camBlob      = null;   // blob guardado para descarga robusta
+let _camBlobUrl   = null;   // objectURL activo
 
 function shouldShowCamera(ex) {
   if (['Power', 'Power+', 'Power test'].includes(ex.block)) return true;
@@ -8002,7 +8016,9 @@ function openCameraFromTimer() {
     _camStream = stream;
     const preview = document.getElementById('cam-preview');
     preview.srcObject = stream;
-    if (camBtn) camBtn.classList.add('recording');
+    // Habilitar botón Grabar ahora que el stream está listo
+    const recBtn = document.getElementById('btn-cam-rec');
+    if (recBtn) { recBtn.disabled = false; recBtn.textContent = '⏺ Grabar'; }
   }).catch(err => {
     showToast('No se pudo acceder a la cámara: ' + err.message, 'error');
     closeCamera();
@@ -8026,6 +8042,8 @@ function openCamera(dayKey, exIdx) {
     _camStream = stream;
     const preview = document.getElementById('cam-preview');
     preview.srcObject = stream;
+    const recBtn = document.getElementById('btn-cam-rec');
+    if (recBtn) { recBtn.disabled = false; recBtn.textContent = '⏺ Grabar'; }
   }).catch(err => {
     showToast('No se pudo acceder a la cámara: ' + err.message, 'error');
     closeCamera();
@@ -8057,6 +8075,9 @@ function startCameraRecording() {
 
   _setCamState('recording');
   _startRecTimer();
+  // Indicar grabación activa en el botón del panel
+  const camBtn = document.getElementById('btn-timer-cam');
+  if (camBtn) camBtn.classList.add('recording');
 }
 
 function stopCameraRecording() {
@@ -8065,14 +8086,42 @@ function stopCameraRecording() {
 }
 
 function _onRecordingDone() {
-  const blob = new Blob(_camChunks, { type: _camMimeType });
-  const url  = URL.createObjectURL(blob);
-  const vid  = document.getElementById('cam-playback');
-  vid.src    = url;
+  // Quitar indicador de grabación del botón del panel
+  const camBtn = document.getElementById('btn-timer-cam');
+  if (camBtn) camBtn.classList.remove('recording');
+
+  _camBlob   = new Blob(_camChunks, { type: _camMimeType });
+  _camBlobUrl = URL.createObjectURL(_camBlob);
+
+  const vid = document.getElementById('cam-playback');
+  vid.src   = _camBlobUrl;
+  vid.muted = true;   // necesario para autoplay en móvil
   vid.load();
+  vid.oncanplay = () => {
+    vid.play().catch(() => {});  // autoplay; falla silencioso si el SO lo bloquea
+    const playBtn = document.getElementById('btn-cam-play');
+    if (playBtn) playBtn.textContent = '⏸ Pausar';
+  };
+  vid.onended = () => {
+    const playBtn = document.getElementById('btn-cam-play');
+    if (playBtn) playBtn.textContent = '▶ Reproducir';
+  };
   _stopCamStream();
   _setCamState('playback');
   setCamSpeed(1);
+}
+
+function toggleCamPlayback() {
+  const vid = document.getElementById('cam-playback');
+  const btn = document.getElementById('btn-cam-play');
+  if (!vid) return;
+  if (vid.paused) {
+    vid.play().catch(() => {});
+    if (btn) btn.textContent = '⏸ Pausar';
+  } else {
+    vid.pause();
+    if (btn) btn.textContent = '▶ Reproducir';
+  }
 }
 
 function setCamSpeed(speed) {
@@ -8084,22 +8133,28 @@ function setCamSpeed(speed) {
 }
 
 function downloadCamVideo() {
-  const vid = document.getElementById('cam-playback');
-  if (!vid.src) return;
-  const ext = _camMimeType.includes('mp4') ? 'mp4' : 'webm';
+  if (!_camBlob) return;
+  const ext  = _camMimeType.includes('mp4') ? 'mp4' : 'webm';
   const date = new Date().toISOString().split('T')[0];
-  // Nombre legible: quita solo los caracteres prohibidos en nombres de archivo
   const safeName = (_camLabel || 'video').replace(/[\/\\:*?"<>|]/g, '').trim();
-  const a = document.createElement('a');
-  a.href = vid.src;
+  // Crear URL fresca del blob para descarga robusta en Android
+  const url = URL.createObjectURL(_camBlob);
+  const a   = document.createElement('a');
+  a.href    = url;
   a.download = `${safeName}_${date}.${ext}`;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
   showToast('Vídeo descargado ✓');
 }
 
 function discardCamVideo() {
   _clearPlayback();
-  // Volver a abrir cámara
+  // Deshabilitar botón Grabar mientras se reabre el stream
+  const recBtn = document.getElementById('btn-cam-rec');
+  if (recBtn) { recBtn.disabled = true; recBtn.textContent = '⏺ Cargando cámara…'; }
+  _setCamState('idle');
   navigator.mediaDevices.getUserMedia({
     video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
     audio: false
@@ -8107,14 +8162,18 @@ function discardCamVideo() {
     _camStream = stream;
     const preview = document.getElementById('cam-preview');
     preview.srcObject = stream;
-    _setCamState('idle');
+    if (recBtn) { recBtn.disabled = false; recBtn.textContent = '⏺ Grabar'; }
   }).catch(() => closeCamera());
 }
 
 function _clearPlayback() {
   const vid = document.getElementById('cam-playback');
-  if (vid && vid.src) { URL.revokeObjectURL(vid.src); vid.src = ''; }
+  if (vid) { vid.pause(); vid.src = ''; vid.oncanplay = null; vid.onended = null; }
+  if (_camBlobUrl) { URL.revokeObjectURL(_camBlobUrl); _camBlobUrl = null; }
+  _camBlob   = null;
   _camChunks = [];
+  const playBtn = document.getElementById('btn-cam-play');
+  if (playBtn) playBtn.textContent = '▶ Reproducir';
 }
 
 function _stopCamStream() {
