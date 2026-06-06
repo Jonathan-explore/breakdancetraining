@@ -2341,8 +2341,7 @@ body {
 .camera-video-wrap video {
   width: 100%; height: 100%; object-fit: cover; display: block;
 }
-/* Preview en espejo (cámara frontal) — el vídeo grabado NO se invierte */
-#cam-preview { transform: scaleX(-1); }
+/* Sin mirror en preview ni en playback — se ve tal como graba la cámara */
 /* Botón play/pausa en playback */
 .btn-cam-play {
   width: 100%; padding: 13px; border-radius: 10px;
@@ -2352,6 +2351,37 @@ body {
 }
 .btn-cam-play:hover { background: rgba(255,255,255,0.18); }
 .btn-cam-rec[disabled] { opacity: 0.45; cursor: not-allowed; }
+/* ── BARRA DE PROGRESO / SEEK ────────────────────────────────────────────── */
+.cam-seek-wrap {
+  padding: 2px 4px 0;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.cam-seek-bar {
+  width: 100%; -webkit-appearance: none; appearance: none;
+  height: 5px; border-radius: 3px;
+  background: rgba(255,255,255,0.22);
+  outline: none; cursor: pointer;
+  /* relleno naranja según el valor actual — actualizado por JS */
+  background-image: linear-gradient(var(--orange), var(--orange));
+  background-repeat: no-repeat;
+  background-size: 0% 100%;
+}
+.cam-seek-bar::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--orange);
+  cursor: pointer; box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+  border: 2px solid rgba(255,255,255,0.6);
+}
+.cam-seek-bar::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--orange); cursor: pointer;
+  border: 2px solid rgba(255,255,255,0.6); box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+}
+.cam-time-row {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: rgba(255,255,255,0.5);
+  font-variant-numeric: tabular-nums;
+}
 .rec-badge {
   position: absolute; top: 10px; left: 10px;
   background: rgba(0,0,0,0.65); color: #fff;
@@ -4254,12 +4284,23 @@ body {
 
         <!-- Estado: reproduciendo -->
         <div class="camera-controls" id="cam-state-playback" style="display:none">
+          <!-- Barra seek -->
+          <div class="cam-seek-wrap">
+            <input type="range" class="cam-seek-bar" id="cam-seek-bar" min="0" max="100" step="0.1" value="0">
+            <div class="cam-time-row">
+              <span id="cam-time-cur">0:00</span>
+              <span id="cam-time-dur">0:00</span>
+            </div>
+          </div>
+          <!-- Play / pausa -->
           <button class="btn-cam-play" id="btn-cam-play" onclick="toggleCamPlayback()">▶ Reproducir</button>
+          <!-- Velocidad -->
           <div class="speed-row">
             <button class="btn-speed active" id="btn-spd-1" onclick="setCamSpeed(1)">1×</button>
-            <button class="btn-speed" id="btn-spd-0.5" onclick="setCamSpeed(0.5)">½× lento</button>
-            <button class="btn-speed" id="btn-spd-0.25" onclick="setCamSpeed(0.25)">¼× muy lento</button>
+            <button class="btn-speed" id="btn-spd-0.5" onclick="setCamSpeed(0.5)">½×</button>
+            <button class="btn-speed" id="btn-spd-0.25" onclick="setCamSpeed(0.25)">¼×</button>
           </div>
+          <!-- Descargar / Descartar -->
           <div class="playback-actions">
             <button class="btn-cam-download" onclick="downloadCamVideo()">⬇️ Descargar</button>
             <button class="btn-cam-discard" onclick="discardCamVideo()">🗑 Descartar</button>
@@ -7977,15 +8018,18 @@ window.addEventListener('DOMContentLoaded', () => {
 // =============================================================================
 // MÓDULO DE CÁMARA — grabación 720p sin audio + reproducción lenta
 // =============================================================================
-let _camStream    = null;
-let _camRecorder  = null;
-let _camChunks    = [];
-let _camMimeType  = 'video/webm';
-let _camLabel     = 'airflare';
-let _camTimerInt  = null;
-let _camSecs      = 0;
-let _camBlob      = null;   // blob guardado para descarga robusta
-let _camBlobUrl   = null;   // objectURL activo
+let _camStream      = null;
+let _camRecorder    = null;
+let _camChunks      = [];
+let _camMimeType    = 'video/webm';
+let _camLabel       = 'airflare';
+let _camTimerInt    = null;
+let _camSecs        = 0;
+let _camBlob        = null;   // blob para descarga robusta
+let _camBlobUrl     = null;   // objectURL activo
+let _camTimeHandler = null;   // timeupdate listener ref
+let _camDurHandler  = null;   // loadedmetadata listener ref
+let _camSeekHandler = null;   // input listener del seek bar
 
 function shouldShowCamera(ex) {
   if (['Power', 'Power+', 'Power test'].includes(ex.block)) return true;
@@ -8085,27 +8129,85 @@ function stopCameraRecording() {
   if (_camRecorder && _camRecorder.state !== 'inactive') _camRecorder.stop();
 }
 
+function _fmtCamTime(s) {
+  if (!isFinite(s) || s < 0) return '0:00';
+  const m = Math.floor(s / 60);
+  const ss = Math.floor(s % 60);
+  return `${m}:${String(ss).padStart(2, '0')}`;
+}
+
+function _updateCamSeekUI() {
+  const vid = document.getElementById('cam-playback');
+  const bar = document.getElementById('cam-seek-bar');
+  const cur = document.getElementById('cam-time-cur');
+  if (!vid || !bar) return;
+  if (vid.duration && isFinite(vid.duration)) {
+    const pct = (vid.currentTime / vid.duration) * 100;
+    bar.value = pct;
+    // Actualizar relleno naranja de la barra
+    bar.style.backgroundSize = `${pct}% 100%`;
+  }
+  if (cur) cur.textContent = _fmtCamTime(vid.currentTime);
+}
+
+function _onCamSeekInput() {
+  const vid = document.getElementById('cam-playback');
+  const bar = document.getElementById('cam-seek-bar');
+  if (!vid || !bar || !vid.duration || !isFinite(vid.duration)) return;
+  const t = (bar.value / 100) * vid.duration;
+  vid.currentTime = t;
+  bar.style.backgroundSize = `${bar.value}% 100%`;
+  const cur = document.getElementById('cam-time-cur');
+  if (cur) cur.textContent = _fmtCamTime(t);
+}
+
 function _onRecordingDone() {
   // Quitar indicador de grabación del botón del panel
   const camBtn = document.getElementById('btn-timer-cam');
   if (camBtn) camBtn.classList.remove('recording');
 
-  _camBlob   = new Blob(_camChunks, { type: _camMimeType });
+  _camBlob    = new Blob(_camChunks, { type: _camMimeType });
   _camBlobUrl = URL.createObjectURL(_camBlob);
 
   const vid = document.getElementById('cam-playback');
+  const bar = document.getElementById('cam-seek-bar');
+  const dur = document.getElementById('cam-time-dur');
+
+  // Limpiar listeners anteriores por si acaso
+  if (_camTimeHandler) vid.removeEventListener('timeupdate', _camTimeHandler);
+  if (_camDurHandler)  vid.removeEventListener('loadedmetadata', _camDurHandler);
+  if (_camSeekHandler && bar) bar.removeEventListener('input', _camSeekHandler);
+
+  // Registrar listeners nuevos
+  _camTimeHandler = _updateCamSeekUI;
+  _camDurHandler  = () => { if (dur) dur.textContent = _fmtCamTime(vid.duration); };
+  _camSeekHandler = _onCamSeekInput;
+  vid.addEventListener('timeupdate',    _camTimeHandler);
+  vid.addEventListener('loadedmetadata', _camDurHandler);
+  if (bar) bar.addEventListener('input', _camSeekHandler);
+
+  // Reset UI seek
+  if (bar) { bar.value = 0; bar.style.backgroundSize = '0% 100%'; }
+  const cur = document.getElementById('cam-time-cur');
+  if (cur) cur.textContent = '0:00';
+  if (dur) dur.textContent = '0:00';
+
   vid.src   = _camBlobUrl;
-  vid.muted = true;   // necesario para autoplay en móvil
+  vid.muted = true;
   vid.load();
+
   vid.oncanplay = () => {
-    vid.play().catch(() => {});  // autoplay; falla silencioso si el SO lo bloquea
+    vid.play().catch(() => {});
     const playBtn = document.getElementById('btn-cam-play');
     if (playBtn) playBtn.textContent = '⏸ Pausar';
+    // actualizar duración por si loadedmetadata disparó antes del render
+    if (dur && vid.duration && isFinite(vid.duration)) dur.textContent = _fmtCamTime(vid.duration);
   };
   vid.onended = () => {
     const playBtn = document.getElementById('btn-cam-play');
     if (playBtn) playBtn.textContent = '▶ Reproducir';
   };
+
   _stopCamStream();
   _setCamState('playback');
   setCamSpeed(1);
@@ -8168,10 +8270,27 @@ function discardCamVideo() {
 
 function _clearPlayback() {
   const vid = document.getElementById('cam-playback');
-  if (vid) { vid.pause(); vid.src = ''; vid.oncanplay = null; vid.onended = null; }
+  const bar = document.getElementById('cam-seek-bar');
+  if (vid) {
+    vid.pause();
+    if (_camTimeHandler) vid.removeEventListener('timeupdate',    _camTimeHandler);
+    if (_camDurHandler)  vid.removeEventListener('loadedmetadata', _camDurHandler);
+    vid.oncanplay = null; vid.onended = null;
+    vid.src = '';
+  }
+  if (_camSeekHandler && bar) bar.removeEventListener('input', _camSeekHandler);
+  _camTimeHandler = _camDurHandler = _camSeekHandler = null;
+
   if (_camBlobUrl) { URL.revokeObjectURL(_camBlobUrl); _camBlobUrl = null; }
   _camBlob   = null;
   _camChunks = [];
+
+  // Reset UI
+  if (bar) { bar.value = 0; bar.style.backgroundSize = '0% 100%'; }
+  const cur = document.getElementById('cam-time-cur');
+  const dur = document.getElementById('cam-time-dur');
+  if (cur) cur.textContent = '0:00';
+  if (dur) dur.textContent = '0:00';
   const playBtn = document.getElementById('btn-cam-play');
   if (playBtn) playBtn.textContent = '▶ Reproducir';
 }
