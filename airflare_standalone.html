@@ -2298,6 +2298,122 @@ body {
   box-shadow: 0 0 0 2px rgba(var(--orange-rgb), 0.08);
 }
 
+/* ── CÁMARA ─────────────────────────────────────────────────────────────── */
+.btn-cam-toggle {
+  background: none; border: none; cursor: pointer;
+  font-size: 16px; padding: 4px 6px; border-radius: 6px;
+  line-height: 1; transition: background 0.15s;
+}
+.btn-cam-toggle:hover { background: rgba(255,107,53,0.12); }
+
+.camera-overlay {
+  position: fixed; inset: 0; z-index: 1100;
+  background: rgba(0,0,0,0.92);
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px;
+}
+.camera-card {
+  background: #12112a; border-radius: 16px;
+  width: 100%; max-width: 480px;
+  display: flex; flex-direction: column; gap: 0;
+  overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+}
+.camera-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.camera-title {
+  font-size: 12px; font-weight: 700; color: var(--orange);
+  letter-spacing: 0.04em; text-transform: uppercase; flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.camera-close {
+  background: none; border: none; color: var(--text-secondary);
+  font-size: 18px; cursor: pointer; padding: 2px 6px;
+  border-radius: 6px; line-height: 1;
+}
+.camera-close:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
+.camera-video-wrap {
+  position: relative; background: #000;
+  aspect-ratio: 16/9; width: 100%;
+}
+.camera-video-wrap video {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.rec-badge {
+  position: absolute; top: 10px; left: 10px;
+  background: rgba(0,0,0,0.65); color: #fff;
+  padding: 4px 10px; border-radius: 20px;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; pointer-events: none;
+}
+.rec-dot {
+  width: 9px; height: 9px; background: #ff3b3b;
+  border-radius: 50%; animation: recblink 1s infinite;
+}
+@keyframes recblink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+.camera-controls {
+  padding: 14px 16px; display: flex;
+  flex-direction: column; gap: 10px;
+}
+.cam-hint {
+  font-size: 10px; color: var(--text-dim);
+  text-align: center; font-style: italic;
+}
+.btn-cam-rec {
+  width: 100%; padding: 13px; border-radius: 10px;
+  background: #e53935; color: #fff;
+  border: none; font-size: 15px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.03em;
+  transition: background 0.15s;
+}
+.btn-cam-rec:hover { background: #c62828; }
+.btn-cam-stop {
+  width: 100%; padding: 13px; border-radius: 10px;
+  background: #333; color: #fff;
+  border: none; font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: background 0.15s;
+}
+.btn-cam-stop:hover { background: #444; }
+
+.speed-row {
+  display: flex; gap: 8px; justify-content: center;
+}
+.btn-speed {
+  flex: 1; padding: 9px 4px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05); color: var(--text-secondary);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-speed.active {
+  background: var(--orange); border-color: var(--orange);
+  color: #fff;
+}
+.btn-speed:hover:not(.active) { background: rgba(255,255,255,0.1); }
+
+.playback-actions {
+  display: flex; gap: 8px;
+}
+.btn-cam-download {
+  flex: 2; padding: 11px; border-radius: 9px;
+  background: rgba(var(--orange-rgb),0.15);
+  border: 1px solid rgba(var(--orange-rgb),0.35);
+  color: var(--orange); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: background 0.15s;
+}
+.btn-cam-download:hover { background: rgba(var(--orange-rgb),0.25); }
+.btn-cam-discard {
+  flex: 1; padding: 11px; border-radius: 9px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-secondary); font-size: 13px; cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-cam-discard:hover { background: rgba(255,255,255,0.1); color:#fff; }
+
 /* GUARDAR SESIÓN */
 .btn-save-session { border-color: rgba(var(--orange-rgb), 0.22); }
 .btn-save-session:hover {
@@ -4060,6 +4176,49 @@ body {
             placeholder="Escribe aquí tus observaciones generales, objetivos de la semana, notas sobre lesiones, récords personales..."></textarea>
         </div>
 
+      </div>
+    </div>
+
+    <!-- MODAL DE CÁMARA -->
+    <div class="camera-overlay" id="camera-overlay" style="display:none">
+      <div class="camera-card">
+        <div class="camera-header">
+          <span class="camera-title" id="camera-title">📹 Grabación</span>
+          <button class="camera-close" onclick="closeCamera()">✕</button>
+        </div>
+
+        <div class="camera-video-wrap">
+          <video id="cam-preview" autoplay muted playsinline></video>
+          <video id="cam-playback" playsinline style="display:none"></video>
+          <div class="rec-badge" id="rec-badge" style="display:none">
+            <span class="rec-dot"></span>
+            <span id="rec-timer">00:00</span>
+          </div>
+        </div>
+
+        <!-- Estado: listo para grabar -->
+        <div class="camera-controls" id="cam-state-idle">
+          <p class="cam-hint">Sin audio — la música seguirá sonando</p>
+          <button class="btn-cam-rec" onclick="startCameraRecording()">⏺ Grabar</button>
+        </div>
+
+        <!-- Estado: grabando -->
+        <div class="camera-controls" id="cam-state-recording" style="display:none">
+          <button class="btn-cam-stop" onclick="stopCameraRecording()">⏹ Detener</button>
+        </div>
+
+        <!-- Estado: reproduciendo -->
+        <div class="camera-controls" id="cam-state-playback" style="display:none">
+          <div class="speed-row">
+            <button class="btn-speed active" id="btn-spd-1" onclick="setCamSpeed(1)">1×</button>
+            <button class="btn-speed" id="btn-spd-0.5" onclick="setCamSpeed(0.5)">½× lento</button>
+            <button class="btn-speed" id="btn-spd-0.25" onclick="setCamSpeed(0.25)">¼× muy lento</button>
+          </div>
+          <div class="playback-actions">
+            <button class="btn-cam-download" onclick="downloadCamVideo()">⬇️ Descargar</button>
+            <button class="btn-cam-discard" onclick="discardCamVideo()">🗑 Descartar</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -5891,6 +6050,7 @@ function renderTimeline(dayKey, exercises) {
         </div>
       </div>
       <div class="group-header-right">
+        ${shouldShowCamera(ex) ? `<button class="btn-cam-toggle" onclick="event.stopPropagation(); openCamera('${dayKey}',${exIdx})" title="Grabar este ejercicio">📹</button>` : ''}
         <button class="btn-tech-toggle" onclick="event.stopPropagation(); toggleTechnique(${exIdx})" title="Ver indicaciones del ejercicio">📖</button>
         <span class="group-step-count ${completedCount === totalSteps && totalSteps > 0 ? 'all-done' : ''}">${completedCount}/${totalSteps}</span>
       </div>
@@ -7766,6 +7926,157 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// =============================================================================
+// MÓDULO DE CÁMARA — grabación 720p sin audio + reproducción lenta
+// =============================================================================
+let _camStream    = null;
+let _camRecorder  = null;
+let _camChunks    = [];
+let _camMimeType  = 'video/webm';
+let _camLabel     = 'airflare';
+let _camTimerInt  = null;
+let _camSecs      = 0;
+
+function shouldShowCamera(ex) {
+  if (['Power', 'Power+', 'Power test'].includes(ex.block)) return true;
+  if (!['Calentamiento', 'Activación'].includes(ex.block) && /flare|windmill/i.test(ex.name)) return true;
+  return false;
+}
+
+function openCamera(dayKey, exIdx) {
+  const ex = ROUTINE_DATA[dayKey]?.exercises[exIdx];
+  if (!ex) return;
+  const dayTitle = ROUTINE_DATA[dayKey]?.title || dayKey;
+  _camLabel = `${dayKey}_${ex.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-]/g,'').toLowerCase()}`;
+  document.getElementById('camera-title').textContent = `📹 ${dayTitle} · ${ex.name}`;
+
+  _setCamState('idle');
+  document.getElementById('camera-overlay').style.display = 'flex';
+
+  navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+    audio: false
+  }).then(stream => {
+    _camStream = stream;
+    const preview = document.getElementById('cam-preview');
+    preview.srcObject = stream;
+  }).catch(err => {
+    showToast('No se pudo acceder a la cámara: ' + err.message, 'error');
+    closeCamera();
+  });
+}
+
+function closeCamera() {
+  _stopCamStream();
+  _clearPlayback();
+  _stopRecTimer();
+  document.getElementById('camera-overlay').style.display = 'none';
+}
+
+function startCameraRecording() {
+  if (!_camStream) return;
+  _camChunks = [];
+  _camMimeType = ['video/mp4','video/webm;codecs=vp9','video/webm']
+    .find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+
+  _camRecorder = new MediaRecorder(_camStream, {
+    mimeType: _camMimeType,
+    videoBitsPerSecond: 2_500_000
+  });
+  _camRecorder.ondataavailable = e => { if (e.data.size > 0) _camChunks.push(e.data); };
+  _camRecorder.onstop = _onRecordingDone;
+  _camRecorder.start(200);
+
+  _setCamState('recording');
+  _startRecTimer();
+}
+
+function stopCameraRecording() {
+  _stopRecTimer();
+  if (_camRecorder && _camRecorder.state !== 'inactive') _camRecorder.stop();
+}
+
+function _onRecordingDone() {
+  const blob = new Blob(_camChunks, { type: _camMimeType });
+  const url  = URL.createObjectURL(blob);
+  const vid  = document.getElementById('cam-playback');
+  vid.src    = url;
+  vid.load();
+  _stopCamStream();
+  _setCamState('playback');
+  setCamSpeed(1);
+}
+
+function setCamSpeed(speed) {
+  const vid = document.getElementById('cam-playback');
+  vid.playbackRate = speed;
+  document.querySelectorAll('.btn-speed').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`btn-spd-${speed}`);
+  if (btn) btn.classList.add('active');
+}
+
+function downloadCamVideo() {
+  const vid = document.getElementById('cam-playback');
+  if (!vid.src) return;
+  const ext = _camMimeType.includes('mp4') ? 'mp4' : 'webm';
+  const date = new Date().toISOString().split('T')[0];
+  const a = document.createElement('a');
+  a.href = vid.src;
+  a.download = `${_camLabel}_${date}.${ext}`;
+  a.click();
+  showToast('Vídeo descargado ✓');
+}
+
+function discardCamVideo() {
+  _clearPlayback();
+  // Volver a abrir cámara
+  navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+    audio: false
+  }).then(stream => {
+    _camStream = stream;
+    const preview = document.getElementById('cam-preview');
+    preview.srcObject = stream;
+    _setCamState('idle');
+  }).catch(() => closeCamera());
+}
+
+function _clearPlayback() {
+  const vid = document.getElementById('cam-playback');
+  if (vid && vid.src) { URL.revokeObjectURL(vid.src); vid.src = ''; }
+  _camChunks = [];
+}
+
+function _stopCamStream() {
+  if (_camStream) { _camStream.getTracks().forEach(t => t.stop()); _camStream = null; }
+  if (_camRecorder && _camRecorder.state !== 'inactive') { _camRecorder.stop(); }
+  _camRecorder = null;
+}
+
+function _startRecTimer() {
+  _camSecs = 0; _updRecTimer();
+  _camTimerInt = setInterval(() => { _camSecs++; _updRecTimer(); }, 1000);
+}
+function _stopRecTimer() {
+  clearInterval(_camTimerInt); _camTimerInt = null;
+}
+function _updRecTimer() {
+  const el = document.getElementById('rec-timer');
+  if (el) el.textContent = `${String(Math.floor(_camSecs/60)).padStart(2,'0')}:${String(_camSecs%60).padStart(2,'0')}`;
+}
+
+function _setCamState(state) {
+  // videos
+  document.getElementById('cam-preview').style.display  = state !== 'playback' ? 'block' : 'none';
+  document.getElementById('cam-playback').style.display = state === 'playback'  ? 'block' : 'none';
+  // badge REC
+  document.getElementById('rec-badge').style.display    = state === 'recording' ? 'flex'  : 'none';
+  // control panels
+  document.getElementById('cam-state-idle').style.display      = state === 'idle'      ? 'flex' : 'none';
+  document.getElementById('cam-state-recording').style.display  = state === 'recording'  ? 'flex' : 'none';
+  document.getElementById('cam-state-playback').style.display   = state === 'playback'   ? 'flex' : 'none';
+}
 
 // Compatibilidad — mantener para no romper referencias externas
 function speakText() {}
