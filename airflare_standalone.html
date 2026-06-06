@@ -5988,7 +5988,7 @@ function renderDay(dayKey) {
 // RENDERIZADO DEL CRONOGRAMA (JERARQUÍA EJERCICIO → PASOS)
 // =============================================================================
 function getPhaseCategory(block) {
-  if (['Calentamiento', 'Activación', 'Movilidad'].includes(block)) return 'CALENTAMIENTO';
+  if (['Calentamiento', 'Activación', 'Movilidad'].includes(block)) return 'PRECALENTAMIENTO';
   if (['Power', 'Power+', 'Fuerza', 'Baile', 'Mental', 'Power test', 'Técnica', 'Explosivo'].includes(block)) return 'ENTRENAMIENTO';
   return 'POST-ENTRENAMIENTO';
 }
@@ -5997,7 +5997,7 @@ function renderTimeline(dayKey, exercises) {
   const container = document.getElementById('timeline-container');
   container.innerHTML = '';
 
-  const icons = { 'CALENTAMIENTO': '🔥', 'ENTRENAMIENTO': '💪', 'POST-ENTRENAMIENTO': '🌙' };
+  const icons = { 'PRECALENTAMIENTO': '🔥', 'ENTRENAMIENTO': '💪', 'POST-ENTRENAMIENTO': '🌙' };
   let lastCategory = null;
   let currentCatContainer = null;
 
@@ -6021,7 +6021,7 @@ function renderTimeline(dayKey, exercises) {
       container.appendChild(sep);
 
       // Contenedor de ejercicios de esta categoría
-      const catExpanded = categoryState[dayKey + '_' + catClass] === true;
+      const catExpanded = categoryState[dayKey + '_' + catClass] !== false; // abierto por defecto
       currentCatContainer = document.createElement('div');
       currentCatContainer.className = `category-content${catExpanded ? '' : ' collapsed-cat'}`;
       currentCatContainer.id = `cat-${catClass}`;
