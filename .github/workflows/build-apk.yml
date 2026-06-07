@@ -1,0 +1,75 @@
+name: Generar APK de Android (Airflare Dashboard)
+
+# Se ejecuta solo cuando tú lo lanzas manualmente desde la pestaña "Actions" de GitHub
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Java (necesario para firmar el APK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Instalar Node.js (necesario para Bubblewrap)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar la herramienta Bubblewrap (Google) que empaqueta la PWA como app Android
+        run: npm install -g @bubblewrap/cli
+
+      - name: Preparar la clave de firma de la app
+        run: |
+          mkdir -p android-build
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "🔑 Usando la clave de firma guardada en los secretos del repositorio"
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android-build/airflare.keystore
+          else
+            echo "🆕 No hay clave guardada todavía: generando una nueva (solo la primera vez)"
+            keytool -genkeypair -v \
+              -keystore android-build/airflare.keystore \
+              -alias airflare -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "airflare2026" -keypass "airflare2026" \
+              -dname "CN=Airflare Dashboard, OU=Personal, O=Airflare, L=Madrid, S=Madrid, C=ES"
+          fi
+
+      - name: Crear el proyecto Android (TWA) a partir del manifest.json de la PWA
+        working-directory: android-build
+        run: |
+          bubblewrap init \
+            --manifest "https://jonathan-explore.github.io/breakdancetraining/manifest.json" \
+            --directory ./twa-project \
+            --skipPwaValidation || true
+          ls -la ./twa-project || true
+
+      - name: Compilar y firmar el APK
+        working-directory: android-build/twa-project
+        run: |
+          bubblewrap build \
+            --signingKeyPath ../airflare.keystore \
+            --signingKeyAlias airflare \
+            --skipPwaValidation || true
+          echo "── Archivos generados ──"
+          find . -maxdepth 2 -iname "*.apk" -o -iname "*.aab"
+
+      - name: Subir el APK como descarga del workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: airflare-apk
+          path: |
+            android-build/twa-project/**/*.apk
+            android-build/twa-project/**/*.aab
+          if-no-files-found: warn
+
+      - name: "Subir la clave de firma como copia de seguridad (IMPORTANTE: descárgala y guárdala)"
+        uses: actions/upload-artifact@v4
+        with:
+          name: GUARDAR-clave-de-firma
+          path: android-build/airflare.keystore
