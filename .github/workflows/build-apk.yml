@@ -25,6 +25,22 @@ jobs:
       - name: Instalar la herramienta Bubblewrap (Google) que empaqueta la PWA como app Android
         run: npm install -g @bubblewrap/cli
 
+      - name: "Configurar Bubblewrap para usar el SDK de Android que ya trae el runner (evita el aviso de Términos y Condiciones)"
+        run: |
+          set -e
+          mkdir -p "$HOME/.bubblewrap"
+          ANDROID_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "JDK detectado en:         $JAVA_HOME"
+          echo "Android SDK detectado en: $ANDROID_SDK"
+          cat > "$HOME/.bubblewrap/config.json" <<EOF
+          {
+            "jdkPath": "$JAVA_HOME",
+            "androidSdkPath": "$ANDROID_SDK"
+          }
+          EOF
+          echo "── Configuración guardada ──"
+          cat "$HOME/.bubblewrap/config.json"
+
       - name: Preparar la clave de firma de la app
         run: |
           mkdir -p android-build
