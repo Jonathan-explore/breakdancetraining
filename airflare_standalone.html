@@ -6499,24 +6499,40 @@ function scrollToActiveStep() {
   if (active) active.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+// ── Caché de elementos del temporizador + escritura "perezosa" del DOM ──
+// Durante un entrenamiento, showTimerUI/showPrepUI/updateStepProgressBar se
+// ejecutan UNA VEZ POR SEGUNDO. Antes, cada llamada hacía ~7 document.getElementById
+// y ~6 escrituras en style.display (aunque el valor no cambiara), forzando al
+// navegador a recalcular estilos constantemente — esto es justo lo que hace que
+// la app "se note lenta" en móviles modestos durante el cronómetro. Con esta
+// caché + comprobación de "¿de verdad cambió?" pasamos de ~14 operaciones DOM
+// por segundo a prácticamente 0 (solo se escribe cuando el valor es distinto),
+// SIN cambiar nada visualmente.
+const _timerEls = {};
+function _te(id) {
+  return _timerEls[id] || (_timerEls[id] = document.getElementById(id));
+}
+function _setDisplay(id, val) {
+  const el = _te(id);
+  if (el && el.style.display !== val) el.style.display = val;
+}
+function _setText(id, val) {
+  const el = _te(id);
+  if (el && el.textContent !== val) el.textContent = val;
+}
+
 // Mostrar/ocultar el empty state del timer según si hay selección activa
 function showTimerDisplay(show) {
-  const empty = document.getElementById('timer-empty-state');
-  const cd    = document.getElementById('timer-countdown');
+  const empty = _te('timer-empty-state');
+  const cd    = _te('timer-countdown');
   if (!empty || !cd) return;
-  if (show) {
-    empty.style.display = 'none';
-    cd.style.display = '';
-  } else {
-    empty.style.display = '';
-    cd.style.display = 'none';
-  }
+  _setDisplay('timer-empty-state', show ? 'none' : '');
+  _setDisplay('timer-countdown',   show ? '' : 'none');
 }
 
 // Mostrar/ocultar botón "Ver en lista"
 function setScrollBtnVisible(visible) {
-  const row = document.getElementById('scroll-to-step-row');
-  if (row) row.style.display = visible ? 'flex' : 'none';
+  _setDisplay('scroll-to-step-row', visible ? 'flex' : 'none');
 }
 
 // =============================================================================
@@ -7037,7 +7053,8 @@ function stopAuto() {
   showRepsDoneBtn(false);
   hideTransitionUI();
   showInstructionArea(false);
-  document.getElementById('step-progress-fill').style.width = '0%';
+  _te('step-progress-fill').style.width = '0%';
+  _lastProgressPct = 0;
 
   const ex   = ROUTINE_DATA[currentDayKey].exercises[activeExerciseIndex];
   const step = ex && activeStepIndex >= 0 ? ex.steps[activeStepIndex] : null;
@@ -7082,11 +7099,11 @@ function markCurrentStepDone() {
 function showPrepUI(n) {
   showTimerDisplay(true);
   setScrollBtnVisible(true);
-  document.getElementById('timer-countdown').style.display   = 'none';
-  document.getElementById('go-flash').style.display          = 'none';
-  document.getElementById('reps-info-display').style.display = 'none';
-  document.getElementById('prep-wrap').style.display         = 'flex';
-  const el = document.getElementById('prep-number');
+  _setDisplay('timer-countdown',   'none');
+  _setDisplay('go-flash',          'none');
+  _setDisplay('reps-info-display', 'none');
+  _setDisplay('prep-wrap',         'flex');
+  const el = _te('prep-number');
   el.textContent = n;
   const cols = { 5:'#ff3b30', 4:'#ff6b00', 3:'#ff9500', 2:'#ffd60a', 1:'#30d158' };
   el.style.color = cols[n] || '#30d158';
@@ -7095,90 +7112,90 @@ function showPrepUI(n) {
 }
 
 function showGoFlash() {
-  document.getElementById('prep-wrap').style.display         = 'none';
-  document.getElementById('timer-countdown').style.display   = 'none';
-  document.getElementById('reps-info-display').style.display = 'none';
-  document.getElementById('go-flash').style.display          = 'flex';
+  _setDisplay('prep-wrap',         'none');
+  _setDisplay('timer-countdown',   'none');
+  _setDisplay('reps-info-display', 'none');
+  _setDisplay('go-flash',          'flex');
 }
 
 function hideGoFlash() {
-  document.getElementById('go-flash').style.display = 'none';
+  _setDisplay('go-flash', 'none');
 }
 
 function showTimerUI(seconds) {
   showTimerDisplay(true);
   setScrollBtnVisible(true);
-  document.getElementById('prep-wrap').style.display         = 'none';
-  document.getElementById('go-flash').style.display          = 'none';
-  document.getElementById('reps-info-display').style.display = 'none';
-  document.getElementById('timer-countdown').style.display   = 'block';
+  _setDisplay('prep-wrap',         'none');
+  _setDisplay('go-flash',          'none');
+  _setDisplay('reps-info-display', 'none');
+  _setDisplay('timer-countdown',   'block');
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
-  document.getElementById('timer-countdown').textContent =
-    `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+  _setText('timer-countdown',
+    `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`);
 }
 
 function showRepsUI(repsText) {
   showTimerDisplay(true);
   setScrollBtnVisible(true);
-  document.getElementById('prep-wrap').style.display         = 'none';
-  document.getElementById('go-flash').style.display          = 'none';
-  document.getElementById('timer-countdown').style.display   = 'none';
-  const el = document.getElementById('reps-info-display');
-  el.style.display = 'flex';
-  if (repsText) el.textContent = repsText;
-  document.getElementById('step-progress-fill').style.width  = '0%';
+  _setDisplay('prep-wrap',       'none');
+  _setDisplay('go-flash',        'none');
+  _setDisplay('timer-countdown', 'none');
+  _setDisplay('reps-info-display', 'flex');
+  if (repsText) _setText('reps-info-display', repsText);
+  _te('step-progress-fill').style.width = '0%';
+  _lastProgressPct = 0;
 }
 
 function showIdleUI() {
-  document.getElementById('prep-wrap').style.display         = 'none';
-  document.getElementById('go-flash').style.display          = 'none';
-  document.getElementById('reps-info-display').style.display = 'none';
-  document.getElementById('transition-wrap').style.display   = 'none';
+  _setDisplay('prep-wrap',         'none');
+  _setDisplay('go-flash',          'none');
+  _setDisplay('reps-info-display', 'none');
+  _setDisplay('transition-wrap',   'none');
   showTimerDisplay(false);  // muestra empty state
   setScrollBtnVisible(false);
 }
 
 function showInstructionText(text) {
-  const area = document.getElementById('timer-instruction-area');
-  const el   = document.getElementById('timer-step-instruction');
+  const area = _te('timer-instruction-area');
+  const el   = _te('timer-step-instruction');
   if (text) {
-    el.textContent    = text;
-    area.style.display = 'block';
+    _setText('timer-step-instruction', text);
+    _setDisplay('timer-instruction-area', 'block');
   } else {
-    area.style.display = 'none';
+    _setDisplay('timer-instruction-area', 'none');
   }
 }
 
 function showInstructionArea(show) {
-  document.getElementById('timer-instruction-area').style.display = show ? 'block' : 'none';
+  _setDisplay('timer-instruction-area', show ? 'block' : 'none');
 }
 
 function showTransitionUI(nextInstruction, count) {
-  document.getElementById('prep-wrap').style.display         = 'none';
-  document.getElementById('go-flash').style.display          = 'none';
-  document.getElementById('timer-countdown').style.display   = 'none';
-  document.getElementById('reps-info-display').style.display = 'none';
-  document.getElementById('timer-instruction-area').style.display = 'none';
+  _setDisplay('prep-wrap',              'none');
+  _setDisplay('go-flash',               'none');
+  _setDisplay('timer-countdown',        'none');
+  _setDisplay('reps-info-display',      'none');
+  _setDisplay('timer-instruction-area', 'none');
 
-  document.getElementById('transition-next-text').textContent = nextInstruction;
-  document.getElementById('transition-number').textContent    = count;
-  document.getElementById('transition-wrap').style.display   = 'flex';
+  _setText('transition-next-text', nextInstruction);
+  _setText('transition-number',    count);
+  _setDisplay('transition-wrap',   'flex');
 }
 
 function hideTransitionUI() {
-  const el = document.getElementById('transition-wrap');
-  if (el) el.style.display = 'none';
+  _setDisplay('transition-wrap', 'none');
 }
 
 function showPhaseChip(text, cls) {
-  const chip = document.getElementById('phase-chip');
-  chip.textContent = text;
-  chip.className   = `phase-chip${cls ? ' ' + cls : ''}`;
+  const chip = _te('phase-chip');
+  const newClass = `phase-chip${cls ? ' ' + cls : ''}`;
+  if (chip.textContent !== text) chip.textContent = text;
+  if (chip.className !== newClass) chip.className = newClass;
 }
 
 function showRepsDoneBtn(show) {
-  document.getElementById('reps-done-section').style.display = show ? 'block' : 'none';
+  _setDisplay('reps-done-section', show ? 'block' : 'none');
 }
 
 function setPlayBtn(state) {
@@ -7195,10 +7212,16 @@ function setPlayBtn(state) {
   }
 }
 
+let _lastProgressPct = null;
 function updateStepProgressBar(left, total) {
   if (!total) return;
   const pct = Math.max(0, Math.min(100, (left / total) * 100));
-  document.getElementById('step-progress-fill').style.width = `${pct}%`;
+  // Evita escribir en el DOM si el porcentaje (redondeado) no cambió respecto
+  // al fotograma anterior — reduce recálculos de estilo durante el cronómetro
+  const rounded = Math.round(pct * 10) / 10;
+  if (rounded === _lastProgressPct) return;
+  _lastProgressPct = rounded;
+  _te('step-progress-fill').style.width = `${rounded}%`;
 }
 
 // =============================================================================
