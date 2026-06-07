@@ -2216,8 +2216,11 @@ body {
   background: #12112a; border-radius: 16px;
   width: 100%; max-width: 480px;
   max-height: 94vh;
+  max-height: 94dvh; /* dvh = altura visible real en móviles (sin contar barras del navegador que aparecen/desaparecen) — evita que los botones queden fuera de pantalla */
   display: flex; flex-direction: column; gap: 0;
   overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   box-shadow: 0 24px 64px rgba(0,0,0,0.7);
 }
 .camera-header {
@@ -2415,6 +2418,29 @@ body {
   transition: background 0.15s;
 }
 .btn-cam-discard:hover { background: rgba(255,255,255,0.1); color:#fff; }
+
+/* ── CÁMARA — pantallas bajas/móviles: compactar para que TODO quepa sin
+   que el botón de grabar o los controles de reproducción queden fuera ── */
+@media (max-height: 760px) {
+  .camera-video-wrap { aspect-ratio: 4 / 3; }
+  .camera-header { padding: 9px 14px; }
+  .camera-controls { padding: 9px 14px; gap: 7px; }
+  .cam-hint { font-size: 9px; }
+  .btn-cam-rec, .btn-cam-stop, .btn-cam-play {
+    padding: 10px; font-size: 14px;
+  }
+  .speed-row, .trim-row, .playback-actions { gap: 6px; }
+  .btn-speed { padding: 7px 4px; font-size: 12px; }
+  .btn-trim-mark, .btn-trim-reset { padding: 8px 4px; font-size: 11px; }
+  .btn-cam-download, .btn-cam-discard { padding: 9px; font-size: 12px; }
+  .cam-seek-wrap { gap: 2px; }
+  .cam-time-row { font-size: 10px; }
+}
+@media (max-height: 620px) {
+  .camera-video-wrap { aspect-ratio: 1 / 1; }
+  .camera-controls { padding: 7px 12px; gap: 5px; }
+  .btn-cam-rec, .btn-cam-stop, .btn-cam-play { padding: 8px; font-size: 13px; }
+}
 
 /* GUARDAR SESIÓN */
 .btn-save-session { border-color: rgba(var(--orange-rgb), 0.22); }
