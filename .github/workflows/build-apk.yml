@@ -41,23 +41,26 @@ jobs:
           fi
 
       - name: Crear el proyecto Android (TWA) a partir del manifest.json de la PWA
-        working-directory: android-build
         run: |
-          bubblewrap init \
-            --manifest "https://jonathan-explore.github.io/breakdancetraining/manifest.json" \
-            --directory ./twa-project \
-            --skipPwaValidation || true
-          ls -la ./twa-project || true
+          set -e
+          mkdir -p android-build/twa-project
+          cd android-build/twa-project
+          # bubblewrap init es interactivo y hace varias preguntas (nombre, colores, etc.).
+          # Le enviamos líneas vacías para que acepte los valores por defecto que detecta del manifest.json
+          yes "" | bubblewrap init \
+            --manifest "https://jonathan-explore.github.io/breakdancetraining/manifest.json"
+          echo "── Contenido generado en twa-project ──"
+          ls -la
 
       - name: Compilar y firmar el APK
         working-directory: android-build/twa-project
         run: |
-          bubblewrap build \
+          set -e
+          yes "" | bubblewrap build \
             --signingKeyPath ../airflare.keystore \
-            --signingKeyAlias airflare \
-            --skipPwaValidation || true
+            --signingKeyAlias airflare
           echo "── Archivos generados ──"
-          find . -maxdepth 2 -iname "*.apk" -o -iname "*.aab"
+          find . -maxdepth 3 \( -iname "*.apk" -o -iname "*.aab" \) -print
 
       - name: Subir el APK como descarga del workflow
         uses: actions/upload-artifact@v4
