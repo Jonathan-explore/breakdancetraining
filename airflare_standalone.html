@@ -5647,8 +5647,10 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       onPageHide();
+      _onCameraAppHidden();
     } else {
       syncCheckboxesFromStorage();
+      _onCameraAppVisible();
     }
   });
   window.addEventListener('pagehide', onPageHide);
@@ -7467,6 +7469,10 @@ function onPageHide() {
       autoSaveSessionSilent(dayKey, today);
     }
   });
+  // Liberar la cámara si quedó abierta — al descargar/recargar la página no
+  // habrá oportunidad de pulsar "cerrar", y un stream de getUserMedia huérfano
+  // sigue consumiendo CPU/batería (y el indicador de cámara del SO activo).
+  if (typeof _stopCamStream === 'function') _stopCamStream();
 }
 
 function exportExcel() {
@@ -7797,6 +7803,11 @@ let _camFacingMode  = 'environment'; // 'environment' = trasera · 'user' = fron
 let _camTrimStart   = null;   // segundo marcado como inicio del recorte
 let _camTrimEnd     = null;   // segundo marcado como fin del recorte
 let _camExporting   = false;  // true mientras se exporta un recorte
+let _camThumbReady  = false;  // true cuando el <video> oculto de miniaturas ya cargó el blob
+                              // (lazy: evita decodificar 2 streams de vídeo en paralelo si el
+                              // usuario nunca arrastra la barra de progreso)
+let _camWasOpenBeforeHide = false; // true si la cámara estaba activa al pasar la app a 2º plano
+                                   // (para reabrir el stream automáticamente al volver)
 
 function shouldShowCamera(ex) {
   if (['Power', 'Power+', 'Power test'].includes(ex.block)) return true;
@@ -7877,6 +7888,37 @@ function closeCamera() {
   if (camBtn) camBtn.classList.remove('recording');
 }
 
+// ── GESTIÓN DE CÁMARA EN SEGUNDO PLANO ──────────────────────────────────────
+// Sin esto, si el usuario abre la cámara y bloquea el móvil o cambia de app,
+// el stream de getUserMedia sigue activo: la cámara sigue encendida (gasto de
+// batería + indicador del SO encendido + posible grabación en el bolsillo).
+// Al volver, se restaura automáticamente si el overlay seguía abierto.
+function _onCameraAppHidden() {
+  const overlay = document.getElementById('camera-overlay');
+  if (!overlay || overlay.style.display === 'none') return;
+
+  if (_camRecorder && _camRecorder.state === 'recording') {
+    // Detener y guardar la grabación en curso — evita perder el clip
+    // y evita seguir grabando con la app en segundo plano.
+    stopCameraRecording();
+    showToast('Grabación detenida: la app pasó a segundo plano', 'error');
+  } else if (_camStream) {
+    // Solo en preview (idle): liberar el stream para ahorrar batería/CPU.
+    // Se recuerda que estaba abierta para reanudarla al volver.
+    _camWasOpenBeforeHide = true;
+    _stopCamStream();
+    const preview = document.getElementById('cam-preview');
+    if (preview) preview.srcObject = null;
+  }
+}
+
+function _onCameraAppVisible() {
+  if (!_camWasOpenBeforeHide) return;
+  _camWasOpenBeforeHide = false;
+  const overlay = document.getElementById('camera-overlay');
+  if (overlay && overlay.style.display !== 'none') _startCameraStream();
+}
+
 function startCameraRecording() {
   if (!_camStream) return;
   _camChunks = [];
@@ -7928,6 +7970,10 @@ function _onCamSeekInput() {
   const vid = document.getElementById('cam-playback');
   const bar = document.getElementById('cam-seek-bar');
   if (!vid || !bar || !vid.duration || !isFinite(vid.duration)) return;
+  // Lazy init: solo se decodifica el segundo stream de vídeo (miniaturas) si el
+  // usuario realmente arrastra la barra. La primera vez tarda un instante en
+  // tener el primer fotograma listo (carga metadata); a partir de ahí es instantáneo.
+  _setupThumbVideo();
   const t = (bar.value / 100) * vid.duration;
   vid.currentTime = t;
   bar.style.backgroundSize = `${bar.value}% 100%`;
@@ -8053,8 +8099,10 @@ function _exportTrimmedClip(srcVid, start, end, onDone) {
 
 // ── PREVIEW DE FOTOGRAMAS AL ARRASTRAR ──────────────────────────────────────
 function _setupThumbVideo() {
+  if (_camThumbReady) return; // ya inicializado — evita recargar/redecodificar el blob
   const tv = document.getElementById('cam-thumb-video');
   if (!tv || !_camBlobUrl) return;
+  _camThumbReady = true;
   tv.src = _camBlobUrl;
   tv.muted = true;
   tv.load();
@@ -8148,8 +8196,13 @@ function _onRecordingDone() {
     bar.addEventListener('touchend',  _camSeekEndHandler);
   }
 
-  // Preparar vídeo oculto para generar fotogramas de preview al arrastrar
-  _setupThumbVideo();
+  // NOTA DE RENDIMIENTO: el vídeo oculto de miniaturas (_setupThumbVideo) YA NO
+  // se inicializa aquí. Cargar un segundo <video> con la misma fuente obligaría
+  // al decodificador a procesar 2 streams de vídeo en paralelo durante TODA la
+  // revisión de la grabación, aunque el usuario nunca arrastre la barra. Ahora
+  // se inicializa de forma perezosa (lazy) la primera vez que el usuario
+  // realmente interactúa con la barra de progreso — ver _onCamSeekInput().
+  _camThumbReady = false;
 
   // Resetear estado de recorte de una grabación anterior
   _camTrimStart = null; _camTrimEnd = null; _camExporting = false;
@@ -8275,6 +8328,7 @@ function _clearPlayback() {
     }
   }
   if (tv) { tv.pause(); tv.onseeked = null; tv.src = ''; }
+  _camThumbReady = false; // forzar re-init perezoso del vídeo de miniaturas en la próxima grabación
   _camTimeHandler = _camDurHandler = _camSeekHandler = _camSeekEndHandler = null;
   _camThumbBusy = false; _camThumbQueued = null;
   _hideThumbPreview();
