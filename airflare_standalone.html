@@ -72,7 +72,10 @@
   --dur-slow:     0.55s;
 
   --blur-card:    blur(12px) saturate(120%);
-  --blur-nav:     blur(24px) saturate(160%);
+  /* Reducido de blur(24px) a blur(14px): la barra es fixed y queda detrás
+     de contenido con scroll constante; un blur tan alto fuerza recomposición
+     de GPU continua en móviles de gama media/baja (jank en scroll). */
+  --blur-nav:     blur(14px) saturate(140%);
 
   --shadow-card:  0 2px 12px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05);
   --shadow-orange:0 2px 12px rgba(var(--orange-rgb), 0.18), 0 4px 16px rgba(var(--orange-rgb), 0.10);
@@ -634,9 +637,6 @@ body {
 
 .text-accent { color: var(--orange); }
 .text-secondary { color: var(--text-secondary); font-size: 13px; }
-.text-danger { color: var(--red); border-left-color: var(--red) !important; }
-.text-success { color: var(--green); border-left-color: var(--green) !important; }
-.text-muted { color: var(--text-muted); }
 
 /* ── DASHBOARD GRID ─────────────────────────────────────────────────────────── */
 .dashboard-grid {
@@ -872,38 +872,6 @@ body {
 }
 
 /* ── EXERCISE DETAILS ───────────────────────────────────────────────────────── */
-.exercise-details-section {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.detail-card {
-  padding: 18px 20px;
-}
-
-.detail-title {
-  font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--text-primary);
-  border-left: 2px solid var(--orange);
-  padding-left: 10px;
-  margin-bottom: 12px;
-}
-
-.detail-title.border-accent-secondary { border-left-color: var(--green); }
-
-.detail-body {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.65;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
-
 .detail-list {
   list-style: none;
   display: flex;
@@ -929,9 +897,6 @@ body {
 
 .danger-list li::before { color: var(--red); }
 .success-list li::before { color: var(--green); }
-
-.border-danger-glow:hover { border-color: rgba(var(--red-rgb), 0.2) !important; }
-.border-success-glow:hover { border-color: rgba(var(--green-rgb), 0.2) !important; }
 
 /* ── TECHNIQUE CHECKLIST ────────────────────────────────────────────────────── */
 .tech-checklist-item {
@@ -1114,8 +1079,6 @@ body {
 .exercise-group-header[data-block="block-powertest"]      { border-left-color: #e53935; }
 .exercise-group-header[data-block="block-sueno"]          { border-left-color: #7b1fa2; }
 .exercise-group-header[data-block="block-vueltacalma"]    { border-left-color: #607d8b; }
-.exercise-group-header[data-block="block-movilidad"]      { border-left-color: #00897b; }
-.exercise-group-header[data-block="block-mantenimiento"]  { border-left-color: #8d6e63; }
 
 .group-header-left {
   display: flex;
@@ -1404,86 +1367,8 @@ body {
 .block-mental         { background: rgba(230,168,23,0.1); color: #b88000; }
 .block-recuperacion   { background: rgba(0,172,193,0.08); color: #007c8a; }
 .block-powertest      { background: rgba(var(--red-rgb),0.1); color: var(--red); border: 1px solid rgba(var(--red-rgb),0.18); }
-.block-sue\00F1o, .block-sueno { background: rgba(123,31,162,0.09); color: #7b1fa2; }
+.block-sueno { background: rgba(123,31,162,0.09); color: #7b1fa2; }
 .block-vueltacalma    { background: rgba(96,125,139,0.08); color: #607d8b; }
-.block-movilidad      { background: rgba(0,137,123,0.08); color: #00796b; }
-.block-mantenimiento  { background: rgba(141,110,99,0.08); color: #6d4c41; }
-
-/* ── NUTRITION ──────────────────────────────────────────────────────────────── */
-.nutrition-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.nutrition-item {
-  background: rgba(0,0,0,0.015);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  transition: border-color var(--dur-fast) var(--ease-smooth);
-}
-
-.nutrition-item:hover { border-color: var(--border-mid); }
-
-.nutrition-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.nut-icon { font-size: 16px; }
-
-.nut-label {
-  font-family: var(--font-display);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: var(--text-primary);
-  text-transform: uppercase;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-.nutrition-text {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.55;
-}
-
-/* ── MISC ───────────────────────────────────────────────────────────────────── */
-.exercise-info { display: flex; flex-direction: column; gap: 3px; }
-
-.exercise-name-title {
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.exercise-row.completed .exercise-name-title {
-  text-decoration: line-through;
-  color: var(--text-muted);
-}
-
-.btn-play-mini {
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 5px;
-  border-radius: 50%;
-  transition: all var(--dur-fast) var(--ease-smooth);
-}
-
-.btn-play-mini:hover {
-  color: var(--orange);
-  background: rgba(var(--orange-rgb), 0.08);
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    MOBILE — diseño premium para teléfono
@@ -1690,15 +1575,7 @@ body {
     border-radius: var(--radius-md);
   }
 
-  .nutrition-grid { grid-template-columns: 1fr; gap: 10px; }
-
-  .nutrition-item { padding: 13px; }
-
   .section-title { font-size: 11px; }
-
-  .detail-card { padding: 16px; }
-
-  .detail-title { font-size: 9px; }
 
   .timeline-list { max-height: none !important; }
 
@@ -2604,167 +2481,6 @@ body {
   --c-dinner-rgb: 0, 105, 92;
 }
 
-/* Detail title base */
-.detail-card .detail-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  margin: -22px -22px 18px -22px;
-  padding: 13px 20px 11px 16px;
-  border-left: none;
-  border-bottom: 1px solid;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-}
-
-/* TÉCNICA — Naranja */
-.card-technique {
-  border-color: rgba(var(--c-tech-rgb), 0.25) !important;
-  background: linear-gradient(145deg, rgba(var(--c-tech-rgb), 0.04) 0%, var(--bg-card) 50%) !important;
-  box-shadow: var(--shadow-card), inset 0 0 30px rgba(var(--c-tech-rgb), 0.02) !important;
-}
-.card-technique::before {
-  background: linear-gradient(90deg, var(--c-tech), rgba(184,123,40,0.7), transparent) !important;
-  height: 3px !important;
-  opacity: 1 !important;
-}
-.card-technique:hover {
-  border-color: rgba(var(--c-tech-rgb), 0.4) !important;
-}
-.card-technique .detail-title {
-  color: var(--c-tech);
-  background: linear-gradient(90deg, rgba(var(--c-tech-rgb), 0.08), rgba(var(--c-tech-rgb), 0.02));
-  border-bottom-color: rgba(var(--c-tech-rgb), 0.15);
-  border-left: 4px solid var(--c-tech) !important;
-}
-
-/* RESPIRATORIO — Azul */
-.card-breath {
-  border-color: rgba(var(--c-breath-rgb), 0.25) !important;
-  background: linear-gradient(145deg, rgba(var(--c-breath-rgb), 0.04) 0%, var(--bg-card) 50%) !important;
-}
-.card-breath::before {
-  background: linear-gradient(90deg, var(--c-breath), rgba(0,100,148,0.6), transparent) !important;
-  height: 3px !important;
-  opacity: 1 !important;
-}
-.card-breath:hover {
-  border-color: rgba(var(--c-breath-rgb), 0.4) !important;
-}
-.card-breath .detail-title {
-  color: var(--c-breath);
-  background: linear-gradient(90deg, rgba(var(--c-breath-rgb), 0.08), rgba(var(--c-breath-rgb), 0.02));
-  border-bottom-color: rgba(var(--c-breath-rgb), 0.15);
-  border-left: 4px solid var(--c-breath) !important;
-}
-
-/* ERRORES — Rojo */
-.card-errors {
-  border-color: rgba(var(--c-errors-rgb), 0.25) !important;
-  background: linear-gradient(145deg, rgba(var(--c-errors-rgb), 0.04) 0%, var(--bg-card) 50%) !important;
-}
-.card-errors::before {
-  background: linear-gradient(90deg, var(--c-errors), rgba(198,40,40,0.5), transparent) !important;
-  height: 3px !important;
-  opacity: 1 !important;
-}
-.card-errors:hover {
-  border-color: rgba(var(--c-errors-rgb), 0.4) !important;
-}
-.card-errors .detail-title {
-  color: var(--c-errors);
-  background: linear-gradient(90deg, rgba(var(--c-errors-rgb), 0.08), rgba(var(--c-errors-rgb), 0.02));
-  border-bottom-color: rgba(var(--c-errors-rgb), 0.15);
-  border-left: 4px solid var(--c-errors) !important;
-}
-.card-errors .detail-list li::before { color: var(--c-errors); }
-
-/* TIPS — Dorado */
-.card-tips {
-  border-color: rgba(var(--c-tips-rgb), 0.25) !important;
-  background: linear-gradient(145deg, rgba(var(--c-tips-rgb), 0.04) 0%, var(--bg-card) 50%) !important;
-}
-.card-tips::before {
-  background: linear-gradient(90deg, var(--c-tips), rgba(var(--green-rgb), 0.5), transparent) !important;
-  height: 3px !important;
-  opacity: 1 !important;
-}
-.card-tips:hover {
-  border-color: rgba(var(--c-tips-rgb), 0.4) !important;
-}
-.card-tips .detail-title {
-  color: var(--c-tips);
-  background: linear-gradient(90deg, rgba(var(--c-tips-rgb), 0.08), rgba(var(--c-tips-rgb), 0.02));
-  border-bottom-color: rgba(var(--c-tips-rgb), 0.15);
-  border-left: 4px solid var(--c-tips) !important;
-}
-.card-tips .detail-list li::before { color: var(--c-tips); }
-
-/* ALTERNATIVAS — Púrpura */
-.card-alt {
-  border-color: rgba(var(--c-alt-rgb), 0.25) !important;
-  background: linear-gradient(145deg, rgba(var(--c-alt-rgb), 0.04) 0%, var(--bg-card) 50%) !important;
-}
-.card-alt::before {
-  background: linear-gradient(90deg, var(--c-alt), rgba(106,27,154,0.5), transparent) !important;
-  height: 3px !important;
-  opacity: 1 !important;
-}
-.card-alt:hover {
-  border-color: rgba(var(--c-alt-rgb), 0.4) !important;
-}
-.card-alt .detail-title {
-  color: var(--c-alt);
-  background: linear-gradient(90deg, rgba(var(--c-alt-rgb), 0.08), rgba(var(--c-alt-rgb), 0.02));
-  border-bottom-color: rgba(var(--c-alt-rgb), 0.15);
-  border-left: 4px solid var(--c-alt) !important;
-}
-
-/* NUTRICIÓN — colores por momento */
-.nutrition-item {
-  border-left: 3px solid transparent;
-}
-
-.nut-pre {
-  border-color: rgba(var(--c-pre-rgb), 0.2);
-  background: linear-gradient(135deg, rgba(var(--c-pre-rgb), 0.04) 0%, rgba(0,0,0,0.01) 60%);
-  border-left-color: var(--c-pre);
-}
-.nut-pre:hover { border-color: rgba(var(--c-pre-rgb), 0.35); }
-.nut-pre .nut-label { color: var(--c-pre); }
-.nut-pre .nut-icon { background: rgba(var(--c-pre-rgb), 0.08); border-radius: 8px; padding: 4px; }
-
-.nut-intra {
-  border-color: rgba(var(--c-intra-rgb), 0.2);
-  background: linear-gradient(135deg, rgba(var(--c-intra-rgb), 0.04) 0%, rgba(0,0,0,0.01) 60%);
-  border-left-color: var(--c-intra);
-}
-.nut-intra:hover { border-color: rgba(var(--c-intra-rgb), 0.35); }
-.nut-intra .nut-label { color: var(--c-intra); }
-.nut-intra .nut-icon { background: rgba(var(--c-intra-rgb), 0.08); border-radius: 8px; padding: 4px; }
-
-.nut-post {
-  border-color: rgba(var(--c-post-rgb), 0.2);
-  background: linear-gradient(135deg, rgba(var(--c-post-rgb), 0.04) 0%, rgba(0,0,0,0.01) 60%);
-  border-left-color: var(--c-post);
-}
-.nut-post:hover { border-color: rgba(var(--c-post-rgb), 0.35); }
-.nut-post .nut-label { color: var(--c-post); }
-.nut-post .nut-icon { background: rgba(var(--c-post-rgb), 0.08); border-radius: 8px; padding: 4px; }
-
-.nut-dinner {
-  border-color: rgba(var(--c-dinner-rgb), 0.2);
-  background: linear-gradient(135deg, rgba(var(--c-dinner-rgb), 0.04) 0%, rgba(0,0,0,0.01) 60%);
-  border-left-color: var(--c-dinner);
-}
-.nut-dinner:hover { border-color: rgba(var(--c-dinner-rgb), 0.35); }
-.nut-dinner .nut-label { color: var(--c-dinner); }
-.nut-dinner .nut-icon { background: rgba(var(--c-dinner-rgb), 0.08); border-radius: 8px; padding: 4px; }
-
 /* Section titles con color */
 .nutrition-section .section-title {
   border-left: 3px solid var(--green);
@@ -2798,16 +2514,6 @@ body {
 .block-fuerza         { box-shadow: 0 0 6px rgba(var(--blue-rgb), 0.15); }
 .block-baile          { box-shadow: 0 0 6px rgba(156,39,176,0.15); }
 .block-powertest      { box-shadow: 0 0 8px rgba(var(--red-rgb), 0.18); }
-
-/* Mobile detail title */
-@media (max-width: 900px) {
-  .detail-card .detail-title {
-    margin: -18px -18px 16px -18px;
-    padding: 12px 18px 10px 14px;
-    font-size: 9px;
-    letter-spacing: 1.5px;
-  }
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    PANEL DE DETALLES — Tabs estilo iOS
@@ -3520,22 +3226,6 @@ body {
   box-shadow: 0 0 20px rgba(84,110,122,0.24), 0 2px 8px rgba(84,110,122,0.10) !important;
 }
 
-/* — MOVILIDAD — jade refrescante */
-.exercise-group-header[data-block="block-movilidad"] {
-  background: #e0faf4 !important;
-  border-color: rgba(0,105,92,0.25) !important;
-  border-left-color: #00695c !important;
-}
-.exercise-group-header[data-block="block-movilidad"]:hover {
-  background: #c0f0e4 !important;
-  box-shadow: 0 0 12px rgba(0,105,92,0.20) !important;
-}
-.exercise-group-header[data-block="block-movilidad"].active-group {
-  background: #c0f0e4 !important;
-  border-color: rgba(0,105,92,0.5) !important;
-  box-shadow: 0 0 22px rgba(0,105,92,0.28), 0 2px 8px rgba(0,105,92,0.12) !important;
-}
-
 /* ── NOMBRES DE EJERCICIO — texto oscuro para legibilidad ── */
 .exercise-group-header[data-block] .group-exercise-name {
   color: var(--text-primary) !important;
@@ -3599,9 +3289,8 @@ body {
 .block-mental         { background: #fff8c0 !important; color: #8a5500 !important; border: 1px solid rgba(138,85,0,0.3) !important; }
 .block-recuperacion   { background: #c8e8f8 !important; color: #014f86 !important; border: 1px solid rgba(1,79,134,0.3) !important; }
 .block-powertest      { background: #ffd4d4 !important; color: #9b1c1c !important; border: 1px solid rgba(155,28,28,0.3) !important; }
-.block-sueno, .block-sue\00F1o { background: #e4d8f4 !important; color: #38257a !important; border: 1px solid rgba(56,37,122,0.3) !important; }
+.block-sueno { background: #e4d8f4 !important; color: #38257a !important; border: 1px solid rgba(56,37,122,0.3) !important; }
 .block-vueltacalma    { background: #e8ecee !important; color: #3a5260 !important; border: 1px solid rgba(58,82,96,0.3) !important; }
-.block-movilidad      { background: #c6f0e8 !important; color: #004d40 !important; border: 1px solid rgba(0,77,64,0.3) !important; }
 
 /* ── STEP COUNT BADGE — más visible ── */
 .group-step-count {
@@ -3638,17 +3327,6 @@ body {
   border: 1px solid rgba(106,21,128,0.28) !important;
   font-weight: 800 !important;
 }
-
-/* ── NUTRICIÓN — colores más vivos ── */
-.nut-pre    { background: #fff8f0 !important; border-left-color: #e65100 !important; border-color: rgba(230,81,0,0.3) !important; }
-.nut-intra  { background: #e3f0ff !important; border-left-color: #1565c0 !important; border-color: rgba(21,101,192,0.3) !important; }
-.nut-post   { background: #ede7f6 !important; border-left-color: #4527a0 !important; border-color: rgba(69,39,160,0.3) !important; }
-.nut-dinner { background: #e8f5e9 !important; border-left-color: #2e7d32 !important; border-color: rgba(46,125,50,0.3) !important; }
-
-.nut-pre .nut-label    { color: #bf360c !important; }
-.nut-intra .nut-label  { color: #0d47a1 !important; }
-.nut-post .nut-label   { color: #311b92 !important; }
-.nut-dinner .nut-label { color: #1b5e20 !important; }
 
 /* ── SECTION TITLES — más vivos ── */
 .timeline-section .section-title {
@@ -7822,6 +7500,10 @@ function exportExcel() {
   const totalStepsTotal = sessionHistory.reduce((a,s) => a + s.stats.stepsTotal, 0);
   const totalTimeDone   = sessionHistory.reduce((a,s) => a + s.stats.timerMinDone, 0);
 
+  // NOTA: el siguiente template literal genera un documento XML/HTML standalone
+  // (exportación a Excel). El bloque <style> de su interior NO es CSS de la app
+  // — es texto plano que se escribe dentro del archivo exportado. Cualquier
+  // análisis estático de CSS de esta página debe ignorarlo.
   let html = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns:o="urn:schemas-microsoft-com:office:office"
