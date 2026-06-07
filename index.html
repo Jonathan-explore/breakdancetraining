@@ -2335,6 +2335,13 @@ body {
   border-radius: 6px; line-height: 1;
 }
 .camera-close:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.camera-switch {
+  background: none; border: none; color: var(--text-secondary);
+  font-size: 16px; cursor: pointer; padding: 2px 6px;
+  border-radius: 6px; line-height: 1; margin-right: 4px;
+}
+.camera-switch:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.camera-switch:active { transform: scale(0.9); }
 
 .camera-video-wrap {
   position: relative; background: #000;
@@ -2408,6 +2415,33 @@ body {
   display: flex; justify-content: space-between;
   font-size: 11px; color: rgba(255,255,255,0.5);
   font-variant-numeric: tabular-nums;
+}
+/* ── RECORTE (TRIM) ──────────────────────────────────────────────────────── */
+.cam-trim-range {
+  position: absolute;
+  top: 21px; height: 5px; border-radius: 3px;
+  background: rgba(var(--orange-rgb), 0.35);
+  border: 1px solid var(--orange);
+  pointer-events: none; z-index: 1;
+}
+.trim-row { display: flex; gap: 8px; }
+.btn-trim-mark, .btn-trim-reset {
+  flex: 1; padding: 10px 4px; border-radius: 9px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: var(--text-secondary); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-trim-mark:hover, .btn-trim-reset:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.btn-trim-mark.marked {
+  background: rgba(var(--orange-rgb),0.18);
+  border-color: rgba(var(--orange-rgb),0.5);
+  color: var(--orange);
+}
+.btn-trim-reset { flex: 0 0 42px; font-size: 15px; }
+.cam-trim-info {
+  font-size: 11px; color: var(--orange); text-align: center;
+  font-weight: 600;
 }
 .rec-badge {
   position: absolute; top: 10px; left: 10px;
@@ -4286,6 +4320,7 @@ body {
       <div class="camera-card">
         <div class="camera-header">
           <span class="camera-title" id="camera-title">📹 Grabación</span>
+          <button class="camera-switch" id="btn-cam-switch" onclick="switchCamera()" title="Cambiar cámara frontal/trasera">🔄</button>
           <button class="camera-close" onclick="closeCamera()">✕</button>
         </div>
 
@@ -4317,6 +4352,7 @@ body {
               <canvas id="cam-thumb-canvas" width="120" height="68"></canvas>
               <span class="cam-thumb-time" id="cam-thumb-time">0:00</span>
             </div>
+            <div class="cam-trim-range" id="cam-trim-range" style="display:none"></div>
             <input type="range" class="cam-seek-bar" id="cam-seek-bar" min="0" max="100" step="0.1" value="0">
             <div class="cam-time-row">
               <span id="cam-time-cur">0:00</span>
@@ -4325,6 +4361,8 @@ body {
           </div>
           <!-- Vídeo oculto solo para generar fotogramas de preview -->
           <video id="cam-thumb-video" muted playsinline style="display:none"></video>
+          <!-- Vídeo oculto para exportar el recorte -->
+          <video id="cam-trim-video" muted playsinline style="display:none"></video>
           <!-- Play / pausa -->
           <button class="btn-cam-play" id="btn-cam-play" onclick="toggleCamPlayback()">▶ Reproducir</button>
           <!-- Velocidad -->
@@ -4333,9 +4371,16 @@ body {
             <button class="btn-speed" id="btn-spd-0.5" onclick="setCamSpeed(0.5)">½×</button>
             <button class="btn-speed" id="btn-spd-0.25" onclick="setCamSpeed(0.25)">¼×</button>
           </div>
+          <!-- Recorte -->
+          <div class="trim-row">
+            <button class="btn-trim-mark" id="btn-trim-start" onclick="markTrimStart()">✂️ Marcar inicio</button>
+            <button class="btn-trim-mark" id="btn-trim-end" onclick="markTrimEnd()">✂️ Marcar fin</button>
+            <button class="btn-trim-reset" id="btn-trim-reset" onclick="resetTrim()" title="Borrar recorte" style="display:none">↺</button>
+          </div>
+          <p class="cam-trim-info" id="cam-trim-info" style="display:none"></p>
           <!-- Descargar / Descartar -->
           <div class="playback-actions">
-            <button class="btn-cam-download" onclick="downloadCamVideo()">⬇️ Descargar</button>
+            <button class="btn-cam-download" id="btn-cam-download" onclick="downloadCamVideo()">⬇️ Descargar</button>
             <button class="btn-cam-discard" onclick="discardCamVideo()">🗑 Descartar</button>
           </div>
         </div>
@@ -8066,6 +8111,10 @@ let _camSeekHandler = null;   // input listener del seek bar
 let _camSeekEndHandler = null; // pointerup/change listener del seek bar
 let _camThumbBusy   = false;  // true mientras el vídeo oculto está buscando un fotograma
 let _camThumbQueued = null;   // siguiente tiempo pendiente de dibujar
+let _camFacingMode  = 'environment'; // 'environment' = trasera · 'user' = frontal
+let _camTrimStart   = null;   // segundo marcado como inicio del recorte
+let _camTrimEnd     = null;   // segundo marcado como fin del recorte
+let _camExporting   = false;  // true mientras se exporta un recorte
 
 function shouldShowCamera(ex) {
   if (['Power', 'Power+', 'Power test'].includes(ex.block)) return true;
@@ -8074,6 +8123,42 @@ function shouldShowCamera(ex) {
 }
 
 // Abre la cámara desde el botón siempre visible del panel de timer
+// Arranca (o reinicia) el stream de cámara con el facingMode actual.
+// Centraliza la lógica de getUserMedia para abrir/recargar/cambiar cámara.
+function _startCameraStream({ onSuccess, onError } = {}) {
+  const recBtn = document.getElementById('btn-cam-rec');
+  if (recBtn) { recBtn.disabled = true; recBtn.textContent = '⏺ Cargando cámara…'; }
+
+  // Detener stream previo si lo hubiera (p.ej. al cambiar de cámara)
+  if (_camStream) { _camStream.getTracks().forEach(t => t.stop()); _camStream = null; }
+
+  navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: { ideal: _camFacingMode },
+      width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 }
+    },
+    audio: false
+  }).then(stream => {
+    _camStream = stream;
+    const preview = document.getElementById('cam-preview');
+    preview.srcObject = stream;
+    if (recBtn) { recBtn.disabled = false; recBtn.textContent = '⏺ Grabar'; }
+    if (onSuccess) onSuccess(stream);
+  }).catch(err => {
+    showToast('No se pudo acceder a la cámara: ' + err.message, 'error');
+    if (onError) onError(err); else closeCamera();
+  });
+}
+
+// Alterna entre cámara trasera (environment) y frontal (user)
+function switchCamera() {
+  _camFacingMode = (_camFacingMode === 'environment') ? 'user' : 'environment';
+  const btn = document.getElementById('btn-cam-switch');
+  if (btn) btn.textContent = _camFacingMode === 'user' ? '🤳' : '🔄';
+  showToast(_camFacingMode === 'user' ? 'Cámara frontal' : 'Cámara trasera');
+  _startCameraStream();
+}
+
 function openCameraFromTimer() {
   const dayKey = currentDayKey;
   // Prefiere el ejercicio que está en curso (auto mode), sino el activo seleccionado
@@ -8086,23 +8171,7 @@ function openCameraFromTimer() {
 
   _setCamState('idle');
   document.getElementById('camera-overlay').style.display = 'flex';
-
-  const camBtn = document.getElementById('btn-timer-cam');
-
-  navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-    audio: false
-  }).then(stream => {
-    _camStream = stream;
-    const preview = document.getElementById('cam-preview');
-    preview.srcObject = stream;
-    // Habilitar botón Grabar ahora que el stream está listo
-    const recBtn = document.getElementById('btn-cam-rec');
-    if (recBtn) { recBtn.disabled = false; recBtn.textContent = '⏺ Grabar'; }
-  }).catch(err => {
-    showToast('No se pudo acceder a la cámara: ' + err.message, 'error');
-    closeCamera();
-  });
+  _startCameraStream();
 }
 
 function openCamera(dayKey, exIdx) {
@@ -8114,20 +8183,7 @@ function openCamera(dayKey, exIdx) {
 
   _setCamState('idle');
   document.getElementById('camera-overlay').style.display = 'flex';
-
-  navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-    audio: false
-  }).then(stream => {
-    _camStream = stream;
-    const preview = document.getElementById('cam-preview');
-    preview.srcObject = stream;
-    const recBtn = document.getElementById('btn-cam-rec');
-    if (recBtn) { recBtn.disabled = false; recBtn.textContent = '⏺ Grabar'; }
-  }).catch(err => {
-    showToast('No se pudo acceder a la cámara: ' + err.message, 'error');
-    closeCamera();
-  });
+  _startCameraStream();
 }
 
 function closeCamera() {
@@ -8201,6 +8257,116 @@ function _onCamSeekInput() {
 
 function _onCamSeekEnd() {
   _hideThumbPreview();
+}
+
+// ── RECORTE DE VÍDEO (TRIM) ─────────────────────────────────────────────────
+function markTrimStart() {
+  const vid = document.getElementById('cam-playback');
+  if (!vid || !vid.duration || !isFinite(vid.duration)) return;
+  _camTrimStart = vid.currentTime;
+  if (_camTrimEnd !== null && _camTrimEnd <= _camTrimStart) _camTrimEnd = null;
+  _renderTrimRange();
+}
+
+function markTrimEnd() {
+  const vid = document.getElementById('cam-playback');
+  if (!vid || !vid.duration || !isFinite(vid.duration)) return;
+  _camTrimEnd = vid.currentTime;
+  if (_camTrimStart !== null && _camTrimStart >= _camTrimEnd) _camTrimStart = null;
+  _renderTrimRange();
+}
+
+function resetTrim() {
+  _camTrimStart = null;
+  _camTrimEnd = null;
+  _renderTrimRange();
+}
+
+function _renderTrimRange() {
+  const vid       = document.getElementById('cam-playback');
+  const range     = document.getElementById('cam-trim-range');
+  const info      = document.getElementById('cam-trim-info');
+  const btnStart  = document.getElementById('btn-trim-start');
+  const btnEnd    = document.getElementById('btn-trim-end');
+  const btnReset  = document.getElementById('btn-trim-reset');
+  if (!vid || !range || !info) return;
+
+  const dur = (vid.duration && isFinite(vid.duration)) ? vid.duration : 0;
+
+  if (btnStart) btnStart.classList.toggle('marked', _camTrimStart !== null);
+  if (btnEnd)   btnEnd.classList.toggle('marked',   _camTrimEnd   !== null);
+  if (btnStart) btnStart.textContent = _camTrimStart !== null
+    ? `✂️ Inicio: ${_fmtCamTime(_camTrimStart)}` : '✂️ Marcar inicio';
+  if (btnEnd) btnEnd.textContent = _camTrimEnd !== null
+    ? `✂️ Fin: ${_fmtCamTime(_camTrimEnd)}` : '✂️ Marcar fin';
+
+  const hasRange = _camTrimStart !== null && _camTrimEnd !== null && _camTrimEnd > _camTrimStart;
+
+  if (btnReset) btnReset.style.display = (_camTrimStart !== null || _camTrimEnd !== null) ? '' : 'none';
+
+  if (hasRange && dur > 0) {
+    const leftPct  = (_camTrimStart / dur) * 100;
+    const widthPct = ((_camTrimEnd - _camTrimStart) / dur) * 100;
+    range.style.left  = `${leftPct}%`;
+    range.style.width = `${widthPct}%`;
+    range.style.display = '';
+    info.style.display = '';
+    info.textContent = `Recorte: ${_fmtCamTime(_camTrimStart)} → ${_fmtCamTime(_camTrimEnd)} (${_fmtCamTime(_camTrimEnd - _camTrimStart)})`;
+  } else {
+    range.style.display = 'none';
+    if (_camTrimStart !== null || _camTrimEnd !== null) {
+      info.style.display = '';
+      info.textContent = 'Marca inicio y fin para recortar el vídeo';
+    } else {
+      info.style.display = 'none';
+      info.textContent = '';
+    }
+  }
+}
+
+// Re-graba el segmento [start, end] del vídeo usando captureStream + MediaRecorder
+// (no requiere librerías externas; funciona en navegadores modernos con soporte de captureStream)
+function _exportTrimmedClip(srcVid, start, end, onDone) {
+  const tv = document.getElementById('cam-trim-video');
+  if (!tv || !_camBlobUrl || typeof tv.captureStream !== 'function') { onDone(null); return; }
+
+  tv.src = _camBlobUrl;
+  tv.muted = true;
+
+  const finish = (blob) => { tv.src = ''; onDone(blob); };
+
+  tv.onloadedmetadata = () => {
+    tv.currentTime = start;
+    tv.onseeked = () => {
+      tv.onseeked = null;
+      let stream;
+      try { stream = tv.captureStream(); } catch { finish(null); return; }
+
+      const mime = ['video/webm;codecs=vp9', 'video/webm']
+        .find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+      const chunks = [];
+      let recorder;
+      try {
+        recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2_500_000 });
+      } catch { finish(null); return; }
+
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => finish(new Blob(chunks, { type: mime }));
+
+      const stopAtEnd = () => {
+        if (tv.currentTime >= end || tv.ended) {
+          tv.removeEventListener('timeupdate', stopAtEnd);
+          tv.pause();
+          if (recorder.state !== 'inactive') recorder.stop();
+        }
+      };
+      tv.addEventListener('timeupdate', stopAtEnd);
+
+      recorder.start(200);
+      tv.play().catch(() => { recorder.stop(); });
+    };
+  };
+  tv.load();
 }
 
 // ── PREVIEW DE FOTOGRAMAS AL ARRASTRAR ──────────────────────────────────────
@@ -8287,7 +8453,7 @@ function _onRecordingDone() {
 
   // Registrar listeners nuevos
   _camTimeHandler    = _updateCamSeekUI;
-  _camDurHandler     = () => { if (dur) dur.textContent = _fmtCamTime(vid.duration); };
+  _camDurHandler     = () => { if (dur) dur.textContent = _fmtCamTime(vid.duration); _renderTrimRange(); };
   _camSeekHandler    = _onCamSeekInput;
   _camSeekEndHandler = _onCamSeekEnd;
   vid.addEventListener('timeupdate',    _camTimeHandler);
@@ -8302,6 +8468,10 @@ function _onRecordingDone() {
 
   // Preparar vídeo oculto para generar fotogramas de preview al arrastrar
   _setupThumbVideo();
+
+  // Resetear estado de recorte de una grabación anterior
+  _camTrimStart = null; _camTrimEnd = null; _camExporting = false;
+  _renderTrimRange();
 
   // Reset UI seek
   if (bar) { bar.value = 0; bar.style.backgroundSize = '0% 100%'; }
@@ -8351,13 +8521,10 @@ function setCamSpeed(speed) {
   if (btn) btn.classList.add('active');
 }
 
-function downloadCamVideo() {
-  if (!_camBlob) return;
-  const ext  = _camMimeType.includes('mp4') ? 'mp4' : 'webm';
+function _triggerCamDownload(blob, ext) {
   const date = new Date().toISOString().split('T')[0];
   const safeName = (_camLabel || 'video').replace(/[\/\\:*?"<>|]/g, '').trim();
-  // Crear URL fresca del blob para descarga robusta en Android
-  const url = URL.createObjectURL(_camBlob);
+  const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href    = url;
   a.download = `${safeName}_${date}.${ext}`;
@@ -8365,24 +8532,44 @@ function downloadCamVideo() {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 5000);
-  showToast('Vídeo descargado ✓');
+}
+
+function downloadCamVideo() {
+  if (!_camBlob || _camExporting) return;
+  const ext = _camMimeType.includes('mp4') ? 'mp4' : 'webm';
+  const vid = document.getElementById('cam-playback');
+
+  const hasTrim = _camTrimStart !== null && _camTrimEnd !== null && _camTrimEnd > _camTrimStart;
+  if (!hasTrim) {
+    _triggerCamDownload(_camBlob, ext);
+    showToast('Vídeo descargado ✓');
+    return;
+  }
+
+  // Exportar solo el segmento marcado
+  _camExporting = true;
+  const dlBtn = document.getElementById('btn-cam-download');
+  if (dlBtn) { dlBtn.disabled = true; dlBtn.textContent = '⏳ Recortando…'; }
+  showToast('Recortando vídeo, un momento…');
+
+  _exportTrimmedClip(vid, _camTrimStart, _camTrimEnd, (blob) => {
+    _camExporting = false;
+    if (dlBtn) { dlBtn.disabled = false; dlBtn.textContent = '⬇ Descargar'; }
+    if (blob && blob.size > 0) {
+      _triggerCamDownload(blob, _camMimeType.includes('mp4') ? 'mp4' : 'webm');
+      showToast('Recorte descargado ✓');
+    } else {
+      // Si la exportación falla, descargar el vídeo completo como respaldo
+      _triggerCamDownload(_camBlob, ext);
+      showToast('No se pudo recortar; se descargó el vídeo completo', 'error');
+    }
+  });
 }
 
 function discardCamVideo() {
   _clearPlayback();
-  // Deshabilitar botón Grabar mientras se reabre el stream
-  const recBtn = document.getElementById('btn-cam-rec');
-  if (recBtn) { recBtn.disabled = true; recBtn.textContent = '⏺ Cargando cámara…'; }
   _setCamState('idle');
-  navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-    audio: false
-  }).then(stream => {
-    _camStream = stream;
-    const preview = document.getElementById('cam-preview');
-    preview.srcObject = stream;
-    if (recBtn) { recBtn.disabled = false; recBtn.textContent = '⏺ Grabar'; }
-  }).catch(() => closeCamera());
+  _startCameraStream();
 }
 
 function _clearPlayback() {
@@ -8409,6 +8596,23 @@ function _clearPlayback() {
   _camTimeHandler = _camDurHandler = _camSeekHandler = _camSeekEndHandler = null;
   _camThumbBusy = false; _camThumbQueued = null;
   _hideThumbPreview();
+
+  // Reset del estado de recorte
+  const trimVid = document.getElementById('cam-trim-video');
+  if (trimVid) { trimVid.pause(); trimVid.onseeked = null; trimVid.onloadedmetadata = null; trimVid.src = ''; }
+  _camTrimStart = null; _camTrimEnd = null; _camExporting = false;
+  const range = document.getElementById('cam-trim-range');
+  const info  = document.getElementById('cam-trim-info');
+  const btnStart = document.getElementById('btn-trim-start');
+  const btnEnd   = document.getElementById('btn-trim-end');
+  const btnReset = document.getElementById('btn-trim-reset');
+  if (range) { range.style.display = 'none'; range.style.left = '0%'; range.style.width = '0%'; }
+  if (info)  { info.style.display = 'none'; info.textContent = ''; }
+  if (btnStart) { btnStart.classList.remove('marked'); btnStart.textContent = '✂️ Marcar inicio'; }
+  if (btnEnd)   { btnEnd.classList.remove('marked');   btnEnd.textContent   = '✂️ Marcar fin'; }
+  if (btnReset) btnReset.style.display = 'none';
+  const dlBtn = document.getElementById('btn-cam-download');
+  if (dlBtn) { dlBtn.disabled = false; dlBtn.textContent = '⬇ Descargar'; }
 
   if (_camBlobUrl) { URL.revokeObjectURL(_camBlobUrl); _camBlobUrl = null; }
   _camBlob   = null;
