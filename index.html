@@ -2315,8 +2315,10 @@ body {
 .camera-card {
   background: #12112a; border-radius: 16px;
   width: 100%; max-width: 480px;
+  max-height: 94vh;
   display: flex; flex-direction: column; gap: 0;
-  overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+  overflow-y: auto; overflow-x: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
 }
 .camera-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -2355,6 +2357,31 @@ body {
 .cam-seek-wrap {
   padding: 2px 4px 0;
   display: flex; flex-direction: column; gap: 3px;
+  position: relative;
+}
+/* Preview de fotograma al arrastrar la barra */
+.cam-thumb-preview {
+  position: absolute;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: none;
+  flex-direction: column; align-items: center;
+  pointer-events: none;
+  z-index: 5;
+}
+.cam-thumb-preview canvas {
+  width: 96px; height: 54px;
+  border-radius: 8px;
+  border: 2px solid var(--orange);
+  background: #000;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+  display: block;
+}
+.cam-thumb-time {
+  margin-top: 4px;
+  font-size: 10px; font-weight: 700; color: #fff;
+  background: rgba(0,0,0,0.7); padding: 2px 7px; border-radius: 6px;
+  letter-spacing: 0.02em;
 }
 .cam-seek-bar {
   width: 100%; -webkit-appearance: none; appearance: none;
@@ -4286,12 +4313,18 @@ body {
         <div class="camera-controls" id="cam-state-playback" style="display:none">
           <!-- Barra seek -->
           <div class="cam-seek-wrap">
+            <div class="cam-thumb-preview" id="cam-thumb-preview" style="display:none">
+              <canvas id="cam-thumb-canvas" width="120" height="68"></canvas>
+              <span class="cam-thumb-time" id="cam-thumb-time">0:00</span>
+            </div>
             <input type="range" class="cam-seek-bar" id="cam-seek-bar" min="0" max="100" step="0.1" value="0">
             <div class="cam-time-row">
               <span id="cam-time-cur">0:00</span>
               <span id="cam-time-dur">0:00</span>
             </div>
           </div>
+          <!-- Vídeo oculto solo para generar fotogramas de preview -->
+          <video id="cam-thumb-video" muted playsinline style="display:none"></video>
           <!-- Play / pausa -->
           <button class="btn-cam-play" id="btn-cam-play" onclick="toggleCamPlayback()">▶ Reproducir</button>
           <!-- Velocidad -->
@@ -8030,6 +8063,9 @@ let _camBlobUrl     = null;   // objectURL activo
 let _camTimeHandler = null;   // timeupdate listener ref
 let _camDurHandler  = null;   // loadedmetadata listener ref
 let _camSeekHandler = null;   // input listener del seek bar
+let _camSeekEndHandler = null; // pointerup/change listener del seek bar
+let _camThumbBusy   = false;  // true mientras el vídeo oculto está buscando un fotograma
+let _camThumbQueued = null;   // siguiente tiempo pendiente de dibujar
 
 function shouldShowCamera(ex) {
   if (['Power', 'Power+', 'Power test'].includes(ex.block)) return true;
@@ -8159,6 +8195,69 @@ function _onCamSeekInput() {
   bar.style.backgroundSize = `${bar.value}% 100%`;
   const cur = document.getElementById('cam-time-cur');
   if (cur) cur.textContent = _fmtCamTime(t);
+  _showThumbPreview(bar.value, t);
+  _requestThumbFrame(t);
+}
+
+function _onCamSeekEnd() {
+  _hideThumbPreview();
+}
+
+// ── PREVIEW DE FOTOGRAMAS AL ARRASTRAR ──────────────────────────────────────
+function _setupThumbVideo() {
+  const tv = document.getElementById('cam-thumb-video');
+  if (!tv || !_camBlobUrl) return;
+  tv.src = _camBlobUrl;
+  tv.muted = true;
+  tv.load();
+  _camThumbBusy = false;
+  _camThumbQueued = null;
+  tv.onseeked = () => {
+    _drawThumbFrame();
+    if (_camThumbQueued !== null) {
+      const next = _camThumbQueued;
+      _camThumbQueued = null;
+      tv.currentTime = next;
+    } else {
+      _camThumbBusy = false;
+    }
+  };
+}
+
+function _requestThumbFrame(t) {
+  const tv = document.getElementById('cam-thumb-video');
+  if (!tv || !tv.src) return;
+  if (_camThumbBusy) { _camThumbQueued = t; return; }
+  _camThumbBusy = true;
+  try { tv.currentTime = t; } catch { _camThumbBusy = false; }
+}
+
+function _drawThumbFrame() {
+  const tv = document.getElementById('cam-thumb-video');
+  const cv = document.getElementById('cam-thumb-canvas');
+  if (!tv || !cv || !tv.videoWidth) return;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(tv, 0, 0, cv.width, cv.height);
+}
+
+function _showThumbPreview(pct, t) {
+  const wrap = document.getElementById('cam-thumb-preview');
+  const bar  = document.getElementById('cam-seek-bar');
+  const timeEl = document.getElementById('cam-thumb-time');
+  if (!wrap || !bar) return;
+  wrap.style.display = 'flex';
+  // Centrar el preview sobre la posición arrastrada, sin salirse del ancho de la barra
+  const w = bar.offsetWidth || 1;
+  let x = (pct / 100) * w;
+  const half = wrap.offsetWidth ? wrap.offsetWidth / 2 : 50;
+  x = Math.min(Math.max(x, half), w - half);
+  wrap.style.left = `${x}px`;
+  if (timeEl) timeEl.textContent = _fmtCamTime(t);
+}
+
+function _hideThumbPreview() {
+  const wrap = document.getElementById('cam-thumb-preview');
+  if (wrap) wrap.style.display = 'none';
 }
 
 function _onRecordingDone() {
@@ -8176,15 +8275,33 @@ function _onRecordingDone() {
   // Limpiar listeners anteriores por si acaso
   if (_camTimeHandler) vid.removeEventListener('timeupdate', _camTimeHandler);
   if (_camDurHandler)  vid.removeEventListener('loadedmetadata', _camDurHandler);
-  if (_camSeekHandler && bar) bar.removeEventListener('input', _camSeekHandler);
+  if (bar) {
+    if (_camSeekHandler)    bar.removeEventListener('input', _camSeekHandler);
+    if (_camSeekEndHandler) {
+      bar.removeEventListener('change', _camSeekEndHandler);
+      bar.removeEventListener('pointerup', _camSeekEndHandler);
+      bar.removeEventListener('mouseup', _camSeekEndHandler);
+      bar.removeEventListener('touchend', _camSeekEndHandler);
+    }
+  }
 
   // Registrar listeners nuevos
-  _camTimeHandler = _updateCamSeekUI;
-  _camDurHandler  = () => { if (dur) dur.textContent = _fmtCamTime(vid.duration); };
-  _camSeekHandler = _onCamSeekInput;
+  _camTimeHandler    = _updateCamSeekUI;
+  _camDurHandler     = () => { if (dur) dur.textContent = _fmtCamTime(vid.duration); };
+  _camSeekHandler    = _onCamSeekInput;
+  _camSeekEndHandler = _onCamSeekEnd;
   vid.addEventListener('timeupdate',    _camTimeHandler);
   vid.addEventListener('loadedmetadata', _camDurHandler);
-  if (bar) bar.addEventListener('input', _camSeekHandler);
+  if (bar) {
+    bar.addEventListener('input',  _camSeekHandler);
+    bar.addEventListener('change', _camSeekEndHandler);
+    bar.addEventListener('pointerup', _camSeekEndHandler);
+    bar.addEventListener('mouseup',   _camSeekEndHandler);
+    bar.addEventListener('touchend',  _camSeekEndHandler);
+  }
+
+  // Preparar vídeo oculto para generar fotogramas de preview al arrastrar
+  _setupThumbVideo();
 
   // Reset UI seek
   if (bar) { bar.value = 0; bar.style.backgroundSize = '0% 100%'; }
@@ -8271,6 +8388,7 @@ function discardCamVideo() {
 function _clearPlayback() {
   const vid = document.getElementById('cam-playback');
   const bar = document.getElementById('cam-seek-bar');
+  const tv  = document.getElementById('cam-thumb-video');
   if (vid) {
     vid.pause();
     if (_camTimeHandler) vid.removeEventListener('timeupdate',    _camTimeHandler);
@@ -8278,8 +8396,19 @@ function _clearPlayback() {
     vid.oncanplay = null; vid.onended = null;
     vid.src = '';
   }
-  if (_camSeekHandler && bar) bar.removeEventListener('input', _camSeekHandler);
-  _camTimeHandler = _camDurHandler = _camSeekHandler = null;
+  if (bar) {
+    if (_camSeekHandler)    bar.removeEventListener('input', _camSeekHandler);
+    if (_camSeekEndHandler) {
+      bar.removeEventListener('change', _camSeekEndHandler);
+      bar.removeEventListener('pointerup', _camSeekEndHandler);
+      bar.removeEventListener('mouseup', _camSeekEndHandler);
+      bar.removeEventListener('touchend', _camSeekEndHandler);
+    }
+  }
+  if (tv) { tv.pause(); tv.onseeked = null; tv.src = ''; }
+  _camTimeHandler = _camDurHandler = _camSeekHandler = _camSeekEndHandler = null;
+  _camThumbBusy = false; _camThumbQueued = null;
+  _hideThumbPreview();
 
   if (_camBlobUrl) { URL.revokeObjectURL(_camBlobUrl); _camBlobUrl = null; }
   _camBlob   = null;
