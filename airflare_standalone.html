@@ -133,26 +133,9 @@ body {
   to   { opacity: 1; transform: scale(1); }
 }
 
-@keyframes pulse {
-  0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(var(--orange-rgb), 0.4); }
-  60%  { transform: scale(1.12); box-shadow: 0 0 0 10px rgba(var(--orange-rgb), 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(var(--orange-rgb), 0); }
-}
-
 @keyframes glowPulse {
   0%, 100% { text-shadow: 0 0 16px rgba(var(--orange-rgb), 0.25); }
   50%       { text-shadow: 0 0 32px rgba(var(--orange-rgb), 0.55), 0 0 60px rgba(var(--orange-rgb), 0.15); }
-}
-
-@keyframes shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position:  200% center; }
-}
-
-@keyframes borderFlow {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }
 
 @keyframes pulseRest {
@@ -580,13 +563,31 @@ body {
 }
 
 .progress-bar-fill {
+  position: relative;
+  overflow: hidden;
   height: 100%;
   background: linear-gradient(90deg, var(--orange) 0%, var(--gold) 50%, var(--green) 100%);
-  background-size: 200% 100%;
   box-shadow: 0 0 10px rgba(var(--orange-rgb), 0.35);
   border-radius: var(--radius-pill);
   transition: width 0.5s var(--ease-out);
-  animation: shimmer 3s linear infinite;
+}
+/* RENDIMIENTO: el brillo ya NO se genera animando "background-position" sobre
+   el propio degradado (propiedad de PINTADO — repinta el elemento entero en
+   cada fotograma, perpetuamente, porque esta barra está siempre visible en
+   el panel principal). En su lugar, una franja translúcida se desliza por
+   encima usando solo "transform" (propiedad de COMPOSICIÓN — la GPU la mueve
+   sin repintar nada), logrando el mismo efecto de brillo de forma casi gratis. */
+.progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: shimmerSweep 3s linear infinite;
+}
+@keyframes shimmerSweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 /* ── METRICS BAR ────────────────────────────────────────────────────────────── */
@@ -698,8 +699,11 @@ body {
   top: 0; left: 0; right: 0;
   height: 3px;
   background: linear-gradient(90deg, var(--orange), var(--gold), var(--orange));
-  background-size: 200% 100%;
-  animation: shimmer 4s linear infinite;
+  /* RENDIMIENTO: se quita la animación perpetua de "background-position"
+     (shimmer) — esta franja de 3px está siempre visible mientras se entrena,
+     y animar su degradado obligaba a repintarla en cada fotograma para
+     siempre. El degradado estático es visualmente casi idéntico (una línea
+     de acento de 3px) y elimina ese coste continuo de raíz. */
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
@@ -726,12 +730,30 @@ body {
 
 .pulse-indicator {
   display: inline-block;
+  position: relative;
   width: 6px;
   height: 6px;
   background: var(--orange);
   border-radius: 50%;
-  animation: pulse 1.8s infinite;
   flex-shrink: 0;
+}
+/* RENDIMIENTO: el "anillo" pulsante se generaba antes animando box-shadow
+   (propiedad de PINTADO — fuerza repintado de la GPU en cada fotograma,
+   de forma perpetua, ya que este indicador está siempre visible en el
+   panel principal). Se sustituye por un pseudo-elemento que solo anima
+   transform + opacity — ambas son propiedades de COMPOSICIÓN, casi gratis
+   para la GPU — manteniendo el mismo efecto visual de "anillo expandiéndose". */
+.pulse-indicator::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--orange);
+  animation: pulseRing 1.8s infinite;
+}
+@keyframes pulseRing {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  100% { transform: scale(2.6); opacity: 0; }
 }
 
 #timer-ex-name {
