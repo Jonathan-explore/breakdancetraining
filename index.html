@@ -2493,21 +2493,6 @@ body {
   --c-tips-rgb: 184, 128, 0;
   --c-alt:     #6a1b9a;
   --c-alt-rgb: 106, 27, 154;
-  --c-pre:     #e65100;
-  --c-pre-rgb: 230, 81, 0;
-  --c-intra:   #006494;
-  --c-intra-rgb: 0, 100, 148;
-  --c-post:    #4a148c;
-  --c-post-rgb: 74, 20, 140;
-  --c-dinner:  #00695c;
-  --c-dinner-rgb: 0, 105, 92;
-}
-
-/* Section titles con color */
-.nutrition-section .section-title {
-  border-left: 3px solid var(--green);
-  padding-left: 10px;
-  color: var(--green);
 }
 
 .timeline-section .section-title {
@@ -2657,74 +2642,123 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   NUTRICIÓN — Tabs segmentadas
+   MENÚ DEL DÍA — botón de acceso + modal con el plan de comidas completo
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.nut-tab-bar {
-  display: flex;
-  gap: 5px;
-  margin-bottom: 16px;
-  padding: 4px;
-  background: rgba(0, 0, 0, 0.04);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-}
-
-.nut-tab {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+.btn-menu-dia {
+  display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 9px 4px 8px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 16px;
+  border: 1.5px solid rgba(var(--green-rgb), 0.35);
+  border-radius: var(--radius-pill);
+  background: rgba(var(--green-rgb), 0.08);
+  color: var(--green);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
   cursor: pointer;
-  transition: all var(--dur-fast) var(--ease-spring);
+  transition: background var(--dur-fast), transform var(--dur-fast), border-color var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
 }
-
-.nut-tab:active { transform: scale(0.90); }
-
-.nut-tab-icon { font-size: 16px; line-height: 1; }
-
-.nut-tab-lbl {
-  font-family: var(--font-display);
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: 1px;
-  text-transform: uppercase;
+.btn-menu-dia:hover   { background: rgba(var(--green-rgb), 0.14); border-color: var(--green); }
+.btn-menu-dia:active  { transform: scale(0.96); }
+.btn-menu-dia-icon    { font-size: 16px; line-height: 1; }
+.btn-menu-dia-kcal {
+  font-size: 10px;
+  font-weight: 700;
   color: var(--text-dim);
-  transition: color var(--dur-fast) var(--ease-smooth);
+  letter-spacing: 0.02em;
 }
 
-.nut-tab[data-nut="pre"].active   { background: rgba(var(--c-pre-rgb), 0.1); }
-.nut-tab[data-nut="pre"].active .nut-tab-lbl { color: var(--c-pre); }
-
-.nut-tab[data-nut="intra"].active { background: rgba(var(--c-intra-rgb), 0.1); }
-.nut-tab[data-nut="intra"].active .nut-tab-lbl { color: var(--c-intra); }
-
-.nut-tab[data-nut="post"].active  { background: rgba(var(--c-post-rgb), 0.1); }
-.nut-tab[data-nut="post"].active .nut-tab-lbl { color: var(--c-post); }
-
-.nut-tab[data-nut="dinner"].active { background: rgba(var(--c-dinner-rgb), 0.1); }
-.nut-tab[data-nut="dinner"].active .nut-tab-lbl { color: var(--c-dinner); }
-
-.nut-panel { display: none; }
-
-.nut-panel.active {
+/* — Resumen del día dentro del modal (kcal / proteína totales) — */
+.menu-dia-summary {
+  display: flex;
+  gap: 10px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.menu-dia-stat {
+  flex: 1;
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: var(--radius-md);
+  background: rgba(var(--green-rgb), 0.06);
+  border: 1px solid rgba(var(--green-rgb), 0.18);
+}
+.menu-dia-stat-value {
   display: block;
-  animation: dtabFadeIn 0.22s var(--ease-out) both;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--green);
+  letter-spacing: -0.02em;
+}
+.menu-dia-stat-label {
+  display: block;
+  margin-top: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
 }
 
-.nut-panel-text {
+/* — Lista de comidas — */
+.menu-dia-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.menu-dia-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  animation: stepEnter 0.3s var(--ease-out) both;
+}
+.menu-dia-card-icon {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  border-radius: 50%;
+  background: rgba(var(--green-rgb), 0.1);
+}
+.menu-dia-card-body { flex: 1; min-width: 0; }
+.menu-dia-card-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--green);
+  margin-bottom: 3px;
+}
+.menu-dia-card-text {
   font-size: 13px;
+  line-height: 1.55;
   color: var(--text-secondary);
-  line-height: 1.7;
   overflow-wrap: break-word;
   word-break: break-word;
 }
+.menu-dia-card-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.menu-dia-card-meta .kcal { color: var(--orange); }
+.menu-dia-card-meta .price { color: var(--text-dim); }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    PREMIUM TOUCH — Interacción y jerarquía
@@ -2859,11 +2893,6 @@ body {
 
   .dtab-icon { font-size: 15px; }
   .dtab-label { font-size: 7px; letter-spacing: 0.4px; }
-
-  .nut-tab-bar { gap: 3px; padding: 3px; }
-  .nut-tab { padding: 8px 3px 7px; }
-  .nut-tab-icon { font-size: 15px; }
-  .nut-tab-lbl { font-size: 7px; }
 
   .group-exercise-name { font-size: 13px !important; }
 }
@@ -3356,11 +3385,6 @@ body {
   border-left-color: #e65100 !important;
   text-shadow: none;
 }
-.nutrition-section .section-title {
-  color: #1b5e20 !important;
-  border-left-color: #2e7d32 !important;
-}
-
 /* ── METRIC CARDS — fondo limpio con borde sutil ── */
 .metric-card {
   border: 1.5px solid rgba(0,0,0,0.10) !important;
@@ -4106,6 +4130,11 @@ body {
           </div>
           <h2 id="day-subtitle" class="text-glow">Power principal (Airflare técnico)</h2>
           <p id="day-desc">Día clave de técnica de Airflare con foco en el aterrizaje silencioso y el rebote elástico.</p>
+          <button class="btn-menu-dia" id="btn-menu-dia" onclick="openMenuDelDia()">
+            <span class="btn-menu-dia-icon">🍽️</span>
+            <span>Menú del día</span>
+            <span class="btn-menu-dia-kcal" id="btn-menu-dia-kcal">— kcal</span>
+          </button>
         </div>
 
         <div class="header-controls">
@@ -4331,46 +4360,6 @@ body {
             </div>
           </section>
 
-          <!-- NUTRICIÓN DEL DÍA — Tab segmentado -->
-          <section class="nutrition-section glass-card">
-            <h3 class="section-title">Nutrición de la Sesión</h3>
-
-            <!-- Selector de momento nutricional -->
-            <div class="nut-tab-bar">
-              <button class="nut-tab active" data-nut="pre" onclick="switchNutTab('pre')">
-                <span class="nut-tab-icon">🍳</span>
-                <span class="nut-tab-lbl">PRE</span>
-              </button>
-              <button class="nut-tab" data-nut="intra" onclick="switchNutTab('intra')">
-                <span class="nut-tab-icon">💧</span>
-                <span class="nut-tab-lbl">INTRA</span>
-              </button>
-              <button class="nut-tab" data-nut="post" onclick="switchNutTab('post')">
-                <span class="nut-tab-icon">🍌</span>
-                <span class="nut-tab-lbl">POST</span>
-              </button>
-              <button class="nut-tab" data-nut="dinner" onclick="switchNutTab('dinner')">
-                <span class="nut-tab-icon">🌙</span>
-                <span class="nut-tab-lbl">CENA</span>
-              </button>
-            </div>
-
-            <!-- Contenido nutricional -->
-            <div class="nut-panel active" id="nut-panel-pre">
-              <p class="nut-panel-text" id="nut-pre">Cargando...</p>
-            </div>
-            <div class="nut-panel" id="nut-panel-intra">
-              <p class="nut-panel-text" id="nut-intra">Cargando...</p>
-            </div>
-            <div class="nut-panel" id="nut-panel-post">
-              <p class="nut-panel-text" id="nut-post">Cargando...</p>
-            </div>
-            <div class="nut-panel" id="nut-panel-dinner">
-              <p class="nut-panel-text" id="nut-dinner">Cargando...</p>
-            </div>
-
-          </section>
-
         </div>
 
       </div>
@@ -4402,6 +4391,20 @@ body {
     </div>
   </div>
 
+  <!-- MODAL MENÚ DEL DÍA -->
+  <div class="exercise-info-modal-overlay" id="menu-dia-overlay" onclick="closeMenuDelDiaOnOverlay(event)">
+    <div class="exercise-info-modal menu-dia-modal" id="menu-dia-modal" role="dialog" aria-modal="true" aria-labelledby="menu-dia-title">
+      <div class="modal-header">
+        <h2 class="modal-ex-title" id="menu-dia-title">Menú del día</h2>
+        <button class="modal-close-btn" onclick="closeMenuDelDia()" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="menu-dia-summary" id="menu-dia-summary"></div>
+      <div class="modal-body">
+        <div class="menu-dia-list" id="menu-dia-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Script Link -->
   <script>
 // =============================================================================
@@ -4415,11 +4418,15 @@ const ROUTINE_DATA = {
     title: "Lunes", subtitle: "Power principal (Airflare técnico)",
     desc: "Día clave de técnica de Airflare. Foco en aterrizaje silencioso y rebote elástico. Sistema neuromuscular de alta calidad. Si la fatiga aparece antes del min 90, parar.",
     duration: "1h 50 min – 2h 00 min", system: "Neuromuscular de alta calidad",
-    nutrition: {
-      pre: "80 g avena + plátano + 2 huevos + frutos secos ≈500 kcal. Evitar grasa pesada. 💧 500 ml agua 90-60 min antes.",
-      intra: "A 83 kg pierdes 1,2-1,8 L sudor en 2h. Bebe 200-250 ml cada 25 min. Si hay calor: electrolitos (Na 400-500 mg + K 200 mg + Mg 60 mg). Un dátil entre series largas ayuda.",
-      post: "Ventana anabólica (45 min): 30 g proteína + 60-80 g carbohidratos. Ej: batido whey + plátano + 40 g avena. La combinación carbo+proteína recarga glucógeno 40% más rápido.",
-      dinner: "40 g proteína + carbohidratos medios (arroz integral, quinoa) + vegetales. Si la sesión fue dura: omega-3 (salmón/sardinas o 1-2 g EPA+DHA) para recuperación articular."
+    menu: {
+      kcal: 2599, protein: 173,
+      meals: [
+        { label: 'Desayuno',    icon: '🍳', text: 'PRE: 2 rugbrød + 3 huevos + tomate + plátano + aceite', price: 9,  kcal: 549 },
+        { label: 'Comida',      icon: '🍽️', text: 'POST: pollo 220 g + arroz 100 g + patata 200 g',        price: 17, kcal: 772 },
+        { label: 'Snack tarde', icon: '🥪', text: '2 rugbrød + huevo + queso 50 g + 1 fruta',               price: 12, kcal: 483 },
+        { label: 'Cena',        icon: '🌙', text: 'Caballa (1 lata) + patata 250 g + tomate',               price: 11, kcal: 460 },
+        { label: 'Snack noche', icon: '🥛', text: 'Skyr 250 g + cacahuetes 30 g',                           price: 9,  kcal: 335 }
+      ]
     },
     exercises: [
       {
@@ -4618,11 +4625,15 @@ const ROUTINE_DATA = {
     title: "Martes", subtitle: "Fuerza base + movilidad profunda",
     desc: "Día de construcción estructural. Cero saltos, cero impactos, cero airflare. Solo carga controlada. La fuerza de hoy sostiene la técnica del Lunes y el Jueves.",
     duration: "1h 50 min – 2h 00 min", system: "Muscular (hipertrofia funcional y fuerza máxima)",
-    nutrition: {
-      pre: "90-100 g carbohidratos complejos (arroz integral, batata, pan integral) + 30 g proteína + verduras ≈650 kcal. 💧 600 ml agua 90-30 min antes.",
-      intra: "Sudoración menor que en días de power. 150-200 ml agua cada 25 min. Cafeína opcional (200 mg, 45 min antes) para añadir 5-10% de fuerza pico.",
-      post: "40 g proteína + 70-80 g carbohidratos rápidos. Batido whey + plátano + 50 g avena con leche.",
-      dinner: "40-50 g proteína (pescado azul, omega-3) + carbohidratos complejos + vegetales. Añadir 3-5 g creatina si se suplementa."
+    menu: {
+      kcal: 2581, protein: 188,
+      meals: [
+        { label: 'Desayuno',    icon: '🍳', text: 'PRE: 2 rugbrød + 2 huevos + skyr 200 g + plátano + aceite', price: 11, kcal: 603 },
+        { label: 'Comida',      icon: '🍽️', text: 'POST: pollo 220 g + arroz 100 g + patata 200 g',           price: 17, kcal: 762 },
+        { label: 'Snack tarde', icon: '🥪', text: '2 rugbrød + huevo + un poco de aceite',                     price: 6,  kcal: 300 },
+        { label: 'Cena',        icon: '🌙', text: 'TERNERA 220 g + patata 250 g + tomate (1×/sem)',            price: 22, kcal: 672 },
+        { label: 'Snack noche', icon: '🥛', text: 'Skyr 200 g + cacahuetes 20 g',                              price: 8,  kcal: 244 }
+      ]
     },
     exercises: [
       {
@@ -4827,11 +4838,15 @@ const ROUTINE_DATA = {
     title: "Miércoles", subtitle: "Baile + footwork + freestyle",
     desc: "Descarga neural del power. El SN descansa de la alta intensidad del Lunes mientras el cuerpo sigue activo. SIN AIRFLARES HOY — es deliberado. La calidad de movimiento, musicalidad y flow son el foco.",
     duration: "1h 45 min", system: "Técnico-coordinativo y aeróbico ligero",
-    nutrition: {
-      pre: "Pan integral con pavo y aguacate, o yogur griego con avena y fruta ≈400-450 kcal. 💧 500 ml agua.",
-      intra: "200 ml cada 25 min. Si los rounds son de alta intensidad: electrolitos ligeros para mantener la claridad mental.",
-      post: "25-30 g proteína + 50 g carbohidratos. Batido de frutas o yogur con granola y miel + frutos secos.",
-      dinner: "35-40 g proteína + carbohidratos complejos + vegetales. Día ideal para incluir antiinflamatorios: cúrcuma, jengibre, frutos rojos."
+    menu: {
+      kcal: 2486, protein: 161,
+      meals: [
+        { label: 'Desayuno',    icon: '🍳', text: 'Avena 100 g + leche 300 ml + plátano + cacahuetes 30 g', price: 11, kcal: 844 },
+        { label: 'Comida',      icon: '🍽️', text: 'PRE: 2 rugbrød + 3 huevos + 1 fruta',                    price: 9,  kcal: 436 },
+        { label: 'Snack tarde', icon: '🥪', text: 'Skyr 250 g + plátano (antes de entrenar)',                price: 7,  kcal: 263 },
+        { label: 'Cena',        icon: '🌙', text: 'POST: pollo 220 g + arroz 100 g + tomate',                price: 16, kcal: 612 },
+        { label: 'Snack noche', icon: '🥛', text: 'Queso 50 g + 2 rugbrød',                                  price: 8,  kcal: 331 }
+      ]
     },
     exercises: [
       {
@@ -4998,11 +5013,15 @@ const ROUTINE_DATA = {
     title: "Jueves", subtitle: "Airflare intensivo + ingle preventiva",
     desc: "El día del SALTO CUALITATIVO. Sesión específica del 2º airflare con video-feedback y spotting. Máxima exigencia técnica. Calidad absoluta sobre cantidad. Máximo 8 intentos de 2 vueltas.",
     duration: "2h 00 min", system: "Neuromuscular de alta intensidad",
-    nutrition: {
-      pre: "90 g carbohidratos + 35 g proteína + grasa buena (arroz+pollo+aguacate, o avena+whey+crema cacahuete) ≈650-700 kcal. Cafeína opcional 200 mg 45 min antes.",
-      intra: "Sesión 2h intensidad extrema = 1.5-2 L sudor. Bebe 250 ml cada 25 min con electrolitos (Na 500 mg + K + Mg). Un dátil o sorbo de carbohidratos al final del bloque power.",
-      post: "CRÍTICO (45 min): 35-40 g proteína de alta calidad + 70-90 g carbohidratos. Batido whey 40g + plátano + 50 g avena + miel.",
-      dinner: "50 g proteína (pescado azul para inflamación articular) + carbohidratos complejos + vegetales. Magnesio 300-400 mg antes de dormir para relajar el SN."
+    menu: {
+      kcal: 2675, protein: 175,
+      meals: [
+        { label: 'Desayuno',    icon: '🍳', text: 'PRE: avena 100 g + leche 300 ml + huevo + plátano + PB', price: 12, kcal: 834 },
+        { label: 'Comida',      icon: '🍽️', text: 'POST: pollo 220 g + arroz 100 g + patata 200 g',         price: 17, kcal: 762 },
+        { label: 'Snack tarde', icon: '🥪', text: '2 rugbrød + 2 huevos',                                    price: 7,  kcal: 284 },
+        { label: 'Cena',        icon: '🌙', text: 'Caballa (1 lata) + patata 250 g + tomate',                price: 11, kcal: 460 },
+        { label: 'Snack noche', icon: '🥛', text: 'Skyr 250 g + cacahuetes 30 g',                            price: 9,  kcal: 335 }
+      ]
     },
     exercises: [
       {
@@ -5231,11 +5250,15 @@ const ROUTINE_DATA = {
     title: "Viernes", subtitle: "Fuerza explosiva + combo de baile",
     desc: "Día de POTENCIA: convertir la fuerza del Martes en explosividad aplicable al airflare. Pliometría, core explosivo y un combo de baile a velocidad real. Cierre con test de fatiga acumulada.",
     duration: "1h 50 min", system: "Potencia (fuerza × velocidad)",
-    nutrition: {
-      pre: "80 g carbohidratos + 30 g proteína. Tostadas integrales con huevo y plátano, o arroz con pollo. Cafeína opcional 150-200 mg. 💧 500-600 ml agua.",
-      intra: "200-250 ml agua cada 25 min. Electrolitos si hace calor o la sesión se extiende.",
-      post: "35 g proteína + 70 g carbohidratos. Cierre de la semana de carga: recarga los depósitos para iniciar la recuperación del fin de semana.",
-      dinner: "45-50 g proteína + carbohidratos complejos + vegetales. Si tomas alcohol de forma social, ten en cuenta que perjudica la síntesis proteica y la recuperación."
+    menu: {
+      kcal: 2593, protein: 188,
+      meals: [
+        { label: 'Desayuno',    icon: '🍳', text: '2 rugbrød + 2 huevos + skyr 150 g + plátano + aceite',          price: 10, kcal: 572 },
+        { label: 'Comida',      icon: '🍽️', text: 'PRE: pollo 200 g + arroz 100 g + patata 200 g + tomate',        price: 17, kcal: 750 },
+        { label: 'Snack tarde', icon: '🥪', text: '2 rugbrød + huevo + PB + 1 fruta (antes de entrenar)',          price: 8,  kcal: 387 },
+        { label: 'Cena',        icon: '🌙', text: 'POST: CERDO 200 g + patata 300 g (1×/sem)',                     price: 18, kcal: 640 },
+        { label: 'Snack noche', icon: '🥛', text: 'Skyr 200 g + cacahuetes 20 g',                                  price: 8,  kcal: 244 }
+      ]
     },
     exercises: [
       {
@@ -5427,11 +5450,15 @@ const ROUTINE_DATA = {
     title: "Sábado", subtitle: "Recuperación activa + movilidad",
     desc: "Día de recuperación activa — no de descanso pasivo. El movimiento suave ACELERA la recuperación. Movilidad, yoga y visualización. HOY NO se entrena fuerza, potencia ni airflares.",
     duration: "1h 00 min – 1h 15 min", system: "Regenerativo",
-    nutrition: {
-      pre: "Proteína distribuida (~33 g por comida, 4 comidas) para maximizar síntesis proteica. No elimines los carbohidratos. Alimentos antiinflamatorios: frutos rojos, cúrcuma, jengibre, vegetales de hoja verde.",
-      intra: "Hidratación base: 35 ml/kg/día ≈ 2.9 L de agua.",
-      post: "Comida equilibrada normal rica en nutrientes y antioxidantes.",
-      dinner: "Comida rica en Omega-3 (salmón, sardinas o caballa) para aliviar la inflamación articular de muñecas e ingle."
+    menu: {
+      kcal: 2464, protein: 187,
+      meals: [
+        { label: 'Desayuno',    icon: '🍳', text: 'PRE: 2 rugbrød + 3 huevos + plátano + aceite',  price: 8,  kcal: 549 },
+        { label: 'Comida',      icon: '🍽️', text: 'POST: pollo 220 g + arroz 90 g + patata 200 g',  price: 16, kcal: 736 },
+        { label: 'Snack tarde', icon: '🥪', text: 'Skyr 250 g + plátano + cacahuetes 30 g',         price: 10, kcal: 440 },
+        { label: 'Cena',        icon: '🌙', text: 'Pollo 180 g + patata 250 g + tomate',            price: 14, kcal: 408 },
+        { label: 'Snack noche', icon: '🥛', text: 'Queso 50 g + 2 rugbrød',                         price: 8,  kcal: 331 }
+      ]
     },
     exercises: [
       {
@@ -5545,11 +5572,15 @@ const ROUTINE_DATA = {
     title: "Domingo", subtitle: "Descanso completo",
     desc: "DESCANSO REAL. El día que separa a los atletas que progresan de los que se lesionan. A 83 kg, el cuerpo necesita recuperación verdadera para adaptarse a la carga de la semana. Solo protocolo mínimo de 15 min. El resto del día: vivir, descansar y dormir.",
     duration: "15 min", system: "Recuperativo y descanso absoluto",
-    nutrition: {
-      pre: "Proteína alta y distribuida (~33 g por comida, 4 comidas). Menos carbohidratos que en días de entreno pero sin eliminarlos. Alimentos antiinflamatorios y completos.",
-      intra: "Hidratación base: ~2.9 L de agua. Buena oportunidad para meal prep de la semana (pre y post-entreno del Lunes y Martes listos para no improvisar).",
-      post: "Comida equilibrada y satisfactoria rica en nutrientes.",
-      dinner: "Proteína de digestión lenta (caseína: requesón o yogur griego) antes de dormir → nutre la reparación muscular nocturna. Acuéstate temprano para iniciar el ciclo descansado."
+    menu: {
+      kcal: 2349, protein: 177,
+      meals: [
+        { label: 'Desayuno',    icon: '🍳', text: 'Avena 80 g + leche 300 ml + huevo + plátano + miel', price: 9,  kcal: 711 },
+        { label: 'Comida',      icon: '🍽️', text: 'Pollo 220 g + patata 300 g + tomate',                price: 16, kcal: 492 },
+        { label: 'Snack tarde', icon: '🥪', text: 'Hytteost 250 g + 1 fruta + cacahuetes 30 g',         price: 11, kcal: 502 },
+        { label: 'Cena',        icon: '🌙', text: 'Caballa (1 lata) + 2 rugbrød + tomate',              price: 10, kcal: 400 },
+        { label: 'Snack noche', icon: '🥛', text: 'Skyr 200 g + cacahuetes 20 g',                       price: 8,  kcal: 244 }
+      ]
     },
     exercises: [
       {
@@ -5832,11 +5863,9 @@ function renderDay(dayKey) {
   document.getElementById('day-duration').innerText = data.duration;
   document.getElementById('day-system').innerText = data.system;
 
-  // Nutrición
-  document.getElementById('nut-pre').innerText = data.nutrition.pre;
-  document.getElementById('nut-intra').innerText = data.nutrition.intra;
-  document.getElementById('nut-post').innerText = data.nutrition.post;
-  document.getElementById('nut-dinner').innerText = data.nutrition.dinner;
+  // Menú del día
+  const menuKcalEl = document.getElementById('btn-menu-dia-kcal');
+  if (menuKcalEl && data.menu) menuKcalEl.textContent = `${data.menu.kcal} kcal`;
 
   // Cronograma
   renderTimeline(dayKey, data.exercises);
@@ -6264,6 +6293,57 @@ function closeExerciseInfoModalOnOverlay(e) {
   }
 }
 
+// =============================================================================
+// MODAL — MENÚ DEL DÍA
+// =============================================================================
+function openMenuDelDia() {
+  const data = ROUTINE_DATA[currentDayKey];
+  const menu = data && data.menu;
+  if (!menu) return;
+
+  document.getElementById('menu-dia-title').textContent = `Menú del día — ${data.title || ''}`;
+
+  document.getElementById('menu-dia-summary').innerHTML = `
+    <div class="menu-dia-stat">
+      <span class="menu-dia-stat-value">${menu.kcal}</span>
+      <span class="menu-dia-stat-label">kcal totales</span>
+    </div>
+    <div class="menu-dia-stat">
+      <span class="menu-dia-stat-value">${menu.protein} g</span>
+      <span class="menu-dia-stat-label">proteína</span>
+    </div>
+  `;
+
+  document.getElementById('menu-dia-list').innerHTML = menu.meals.map(m => `
+    <div class="menu-dia-card">
+      <div class="menu-dia-card-icon">${m.icon}</div>
+      <div class="menu-dia-card-body">
+        <div class="menu-dia-card-label">${m.label}</div>
+        <div class="menu-dia-card-text">${m.text}</div>
+        <div class="menu-dia-card-meta">
+          <span class="kcal">${m.kcal} kcal</span>
+          <span class="price">${m.price} kr</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  const overlay = document.getElementById('menu-dia-overlay');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMenuDelDia() {
+  document.getElementById('menu-dia-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeMenuDelDiaOnOverlay(e) {
+  if (e.target === document.getElementById('menu-dia-overlay')) {
+    closeMenuDelDia();
+  }
+}
+
 function switchModalTab(tabName) {
   document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.modal-panel').forEach(p => p.classList.remove('active'));
@@ -6271,26 +6351,6 @@ function switchModalTab(tabName) {
   const panel = document.getElementById(`mpanel-${tabName}`);
   if (tab) tab.classList.add('active');
   if (panel) panel.classList.add('active');
-}
-
-// =============================================================================
-// TABS — NUTRICIÓN
-// =============================================================================
-function switchNutTab(nutName) {
-  document.querySelectorAll('.nut-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.nut-panel').forEach(p => {
-    p.classList.remove('active');
-    p.style.animation = '';
-  });
-
-  const tab = document.querySelector(`.nut-tab[data-nut="${nutName}"]`);
-  const panel = document.getElementById(`nut-panel-${nutName}`);
-  if (tab) tab.classList.add('active');
-  if (panel) {
-    panel.classList.add('active');
-    panel.style.animation = 'none';
-    requestAnimationFrame(() => { panel.style.animation = ''; });
-  }
 }
 
 // =============================================================================
