@@ -7274,10 +7274,26 @@ function setupAudioToggles() {
   if (localStorage.getItem('pref_voice') !== null) voiceToggle.checked = localStorage.getItem('pref_voice') === 'true';
 }
 
+// ── AudioContext compartido ──
+// Antes, cada pitido (playTick/playLastSeconds/playGoSound...) creaba Y CERRABA
+// un AudioContext nuevo. Durante el cronómetro esto pasa varias veces por
+// segundo (cuenta atrás, últimos 3 segundos, cambios de fase…), y crear un
+// AudioContext es una operación "pesada" para el navegador — repetirla tan a
+// menudo provoca microcortes/lentitud justo durante el entrenamiento. Ahora se
+// crea UNA sola vez y se reutiliza (igual que recomienda la Web Audio API).
+let _sharedAudioCtx = null;
+function _getAudioCtx() {
+  if (!_sharedAudioCtx) {
+    _sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (_sharedAudioCtx.state === 'suspended') _sharedAudioCtx.resume();
+  return _sharedAudioCtx;
+}
+
 function playBeep(frequency, durationMs) {
   if (!document.getElementById('toggle-sound').checked) return;
   try {
-    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx  = _getAudioCtx();
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
@@ -7286,7 +7302,7 @@ function playBeep(frequency, durationMs) {
     osc.start();
     gain.gain.setValueAtTime(0.45, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationMs / 1000);
-    setTimeout(() => { osc.stop(); ctx.close(); }, durationMs + 60);
+    setTimeout(() => { osc.stop(); }, durationMs + 60);
   } catch (e) {}
 }
 
