@@ -3,7 +3,7 @@
 // v2: networkFirst para el HTML principal → siempre recibe actualizaciones
 // =============================================================================
 
-const CACHE_NAME = 'airflare-v2';
+const CACHE_NAME = 'airflare-v3';
 
 // Archivos que se pre-cachean (recursos estáticos que raramente cambian)
 const STATIC_ASSETS = [
@@ -38,7 +38,7 @@ self.addEventListener('activate', event => {
 });
 
 // Fetch strategy:
-// - HTML principal (airflare_standalone.html / navegación) → networkFirst
+// - HTML principal (index.html / navegación) → networkFirst
 //   Siempre intenta la red primero para recibir actualizaciones;
 //   cae al caché solo si no hay conexión.
 // - Google Fonts → stale-while-revalidate
