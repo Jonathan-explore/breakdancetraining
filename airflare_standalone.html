@@ -135,8 +135,8 @@ body {
 }
 
 @keyframes glowPulse {
-  0%, 100% { opacity: 0.15; }
-  50%       { opacity: 0.70; }
+  0%, 100% { text-shadow: 0 0 16px rgba(var(--orange-rgb), 0.25); }
+  50%       { text-shadow: 0 0 32px rgba(var(--orange-rgb), 0.55), 0 0 60px rgba(var(--orange-rgb), 0.15); }
 }
 
 @keyframes pulseRest {
@@ -179,7 +179,7 @@ body {
    animation-play-state:paused mantiene la capa GPU sin coste de tick. */
 .app-hidden .progress-bar-fill::after,
 .app-hidden .pulse-indicator::before,
-.app-hidden .timer-display-wrapper::before,
+.app-hidden .timer-display,
 .app-hidden .btn-rest {
   animation-play-state: paused;
 }
@@ -802,19 +802,8 @@ body {
   color: var(--text-pure);
   letter-spacing: -4px;
   line-height: 1;
-  text-shadow: 0 0 20px rgba(var(--orange-rgb), 0.25);
-  position: relative;
-}
-
-/* Efecto pulsante con opacity — compositor-only, sin repaint */
-.timer-display-wrapper::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  filter: drop-shadow(0 0 24px rgba(var(--orange-rgb), 0.5));
-  opacity: 0;
   animation: glowPulse 3s ease-in-out infinite;
-  pointer-events: none;
+  position: relative;
 }
 
 /* Timer controls */
@@ -5783,10 +5772,22 @@ window.addEventListener('DOMContentLoaded', () => {
         _bgWasAutoRunning = false;
         const elapsed = Math.round((Date.now() - _bgHideTimestamp) / 1000);
 
-        if (currentPhase === 'step' || currentPhase === 'rest') {
+        if (currentPhase === 'step') {
           timerSecondsLeft = Math.max(0, timerSecondsLeft - elapsed);
           if (timerSecondsLeft <= 0) { onStepTimerComplete(); }
           else                        { resumeAuto(); }
+
+        } else if (currentPhase === 'rest') {
+          timerSecondsLeft = Math.max(0, timerSecondsLeft - elapsed);
+          if (timerSecondsLeft <= 0) {
+            // El descanso expiró en background: replicar el fin de descanso
+            // SIN marcar ningún paso como completado (a diferencia de un 'step').
+            playChangeSound();
+            showPhaseChip('FIN DESCANSO', 'chip-done');
+            advanceTimeout = setTimeout(() => autoAdvanceToNext(false), 1100);
+          } else {
+            resumeAuto();
+          }
 
         } else if (currentPhase === 'prep') {
           prepLeft = Math.max(0, prepLeft - elapsed);
