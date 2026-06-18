@@ -5690,6 +5690,15 @@ function safeParse(key, fallback) {
   catch { return fallback; }
 }
 
+// Devuelve la fecha (YYYY-MM-DD) del lunes de la semana actual
+function getWeekKey() {
+  const d = new Date();
+  const day = d.getDay(); // 0=dom, 1=lun ... 6=sab
+  const diff = day === 0 ? -6 : 1 - day; // días hasta el lunes
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
+  return monday.toISOString().split('T')[0];
+}
+
 // Completados: { "lunes": ["lu_0_0", "lu_0_2", ...], "martes": [...], ... }
 let completedSteps = safeParse('airflare_completed_steps_v2', {});
 
@@ -5716,6 +5725,31 @@ let generalNotes = localStorage.getItem('airflare_general_notes_v1') || '';
 
 // =============================================================================
 // INICIALIZACIÓN
+// Detecta cambio de semana y resetea los pasos completados
+function checkWeeklyReset() {
+  const currentWeek = getWeekKey();
+  const storedWeek  = localStorage.getItem('airflare_week_key_v1');
+
+  if (!storedWeek) {
+    // Primera vez que corre la app: solo guardar la semana actual
+    localStorage.setItem('airflare_week_key_v1', currentWeek);
+    return;
+  }
+
+  if (storedWeek === currentWeek) return; // misma semana, nada que hacer
+
+  // ── Nueva semana detectada: limpiar progreso semanal ──
+  completedSteps = {};
+  localStorage.setItem('airflare_completed_steps_v2', JSON.stringify(completedSteps));
+  localStorage.setItem('airflare_week_key_v1', currentWeek);
+
+  // Resetear posición activa guardada (ejercicio/paso anterior ya no aplica)
+  savedActive = null;
+  localStorage.removeItem('airflare_active_v1');
+
+  setTimeout(() => showToast('¡Nueva semana! El progreso semanal se ha reiniciado 🔄'), 600);
+}
+
 // =============================================================================
 window.addEventListener('DOMContentLoaded', () => {
   // Marcar el tab correcto al cargar
@@ -5729,6 +5763,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setupRipple();
   updateTodayIndicators();
   showIdleUI();
+  checkWeeklyReset();    // resetear progreso si cambió la semana
   autoArchiveStaleData(); // archivar datos de días anteriores antes de renderizar
   renderDay(currentDayKey);
   updateAllDayMiniBars();
@@ -8142,6 +8177,9 @@ function openCamera(dayKey, exIdx) {
 }
 
 function closeCamera() {
+  // Desconectar el handler onstop antes de parar el recorder para que
+  // _onRecordingDone no se dispare (evita crear un Blob vacío y error de media)
+  if (_camRecorder) _camRecorder.onstop = null;
   _stopCamStream();
   _clearPlayback();
   _stopRecTimer();
