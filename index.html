@@ -5690,13 +5690,22 @@ function safeParse(key, fallback) {
   catch { return fallback; }
 }
 
-// Devuelve la fecha (YYYY-MM-DD) del lunes de la semana actual
+// Formatea la fecha local (YYYY-MM-DD) sin conversión UTC
+function getLocalDateStr(date) {
+  const d = date || new Date();
+  const y  = d.getFullYear();
+  const m  = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+// Devuelve la fecha local (YYYY-MM-DD) del lunes de la semana actual
 function getWeekKey() {
-  const d = new Date();
-  const day = d.getDay(); // 0=dom, 1=lun ... 6=sab
+  const d   = new Date();
+  const day  = d.getDay(); // 0=dom, 1=lun ... 6=sab
   const diff = day === 0 ? -6 : 1 - day; // días hasta el lunes
   const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
-  return monday.toISOString().split('T')[0];
+  return getLocalDateStr(monday);
 }
 
 // Completados: { "lunes": ["lu_0_0", "lu_0_2", ...], "martes": [...], ... }
@@ -5763,8 +5772,8 @@ window.addEventListener('DOMContentLoaded', () => {
   setupRipple();
   updateTodayIndicators();
   showIdleUI();
+  autoArchiveStaleData(); // archivar semana anterior ANTES de resetear (evita pérdida de datos)
   checkWeeklyReset();    // resetear progreso si cambió la semana
-  autoArchiveStaleData(); // archivar datos de días anteriores antes de renderizar
   renderDay(currentDayKey);
   updateAllDayMiniBars();
   if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
@@ -5829,6 +5838,10 @@ window.addEventListener('DOMContentLoaded', () => {
           clearInterval(transitionInterval); transitionInterval = null;
           hideTransitionUI();
           processAutoStep(autoExIdx, autoStepIdx);
+
+        } else if (currentPhase === 'go') {
+          // El flash GO dura 550 ms; si la app vuelve en este instante, ir directo al paso
+          flashGoAndStartStep(stepTotalDuration);
 
         } else {
           resumeAuto();
@@ -6507,7 +6520,7 @@ function toggleStepCompleted(dayKey, stepId, exIdx, checkbox) {
   localStorage.setItem('airflare_completed_steps_v2', JSON.stringify(completedSteps));
 
   // Registrar fecha de entrenamiento para este día
-  trainedDates[dayKey] = new Date().toISOString().split('T')[0];
+  trainedDates[dayKey] = getLocalDateStr();
   localStorage.setItem('airflare_trained_dates_v1', JSON.stringify(trainedDates));
 
   // Actualizar estilo de la fila
@@ -7035,7 +7048,8 @@ function autoAdvanceToNext(isSkip) {
             const stepsEl = document.getElementById(`steps-${nextGroupKey}`);
             const nextHeader = document.querySelectorAll('.exercise-group-header')[nextExIdx];
             if (stepsEl) stepsEl.classList.remove('collapsed');
-            if (nextHeader) nextHeader.querySelector('.group-collapse-icon').textContent = '▼';
+            const nextIcon = nextHeader?.querySelector('.group-collapse-icon');
+            if (nextIcon) nextIcon.textContent = '▼';
           }
         }
       }, 1500);
@@ -7698,7 +7712,7 @@ function autoSaveSessionSilent(dayKey, dateOverride) {
 
 // Al abrir la app: archivar datos de días anteriores antes de que se pierdan
 function autoArchiveStaleData() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateStr();
   let changed = false;
 
   Object.keys(completedSteps).forEach(dayKey => {
@@ -7752,7 +7766,7 @@ function syncCheckboxesFromStorage() {
 
 // Al salir/ocultar la app: guardar progreso actual automáticamente
 function onPageHide() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateStr();
   Object.keys(completedSteps).forEach(dayKey => {
     const steps = completedSteps[dayKey];
     if (steps && steps.length > 0) {
@@ -8461,6 +8475,7 @@ function _onRecordingDone() {
   const camBtn = document.getElementById('btn-timer-cam');
   if (camBtn) camBtn.classList.remove('recording');
 
+  if (_camBlobUrl) { URL.revokeObjectURL(_camBlobUrl); _camBlobUrl = null; }
   _camBlob    = new Blob(_camChunks, { type: _camMimeType });
   _camBlobUrl = URL.createObjectURL(_camBlob);
 
@@ -8702,7 +8717,7 @@ function nextStep()     { handleSkipBtn(); }
 function updateTimerDisplay() { showTimerUI(timerSecondsLeft); }
 
 function formatTime(seconds) {
-  if (!seconds) return '—';
+  if (seconds == null || seconds === '') return '—';
   const minutes = Math.floor(seconds / 60);
   const leftSeconds = seconds % 60;
   if (minutes === 0) return `${leftSeconds}s`;
