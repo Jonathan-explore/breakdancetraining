@@ -5735,6 +5735,7 @@ let generalNotes = localStorage.getItem('airflare_general_notes_v1') || '';
 // =============================================================================
 // INICIALIZACIÓN
 // Detecta cambio de semana y resetea los pasos completados
+// Devuelve true si detectó cambio de semana y limpió el progreso.
 function checkWeeklyReset() {
   const currentWeek = getWeekKey();
   const storedWeek  = localStorage.getItem('airflare_week_key_v1');
@@ -5742,21 +5743,44 @@ function checkWeeklyReset() {
   if (!storedWeek) {
     // Primera vez que corre la app: solo guardar la semana actual
     localStorage.setItem('airflare_week_key_v1', currentWeek);
-    return;
+    return false;
   }
 
-  if (storedWeek === currentWeek) return; // misma semana, nada que hacer
+  if (storedWeek === currentWeek) return false; // misma semana, nada que hacer
 
   // ── Nueva semana detectada: limpiar progreso semanal ──
   completedSteps = {};
   localStorage.setItem('airflare_completed_steps_v2', JSON.stringify(completedSteps));
   localStorage.setItem('airflare_week_key_v1', currentWeek);
 
+  // Las fechas de entrenamiento de la semana anterior ya no aplican: si no se
+  // limpian, un día con fecha vieja podría re-archivarse o mostrar indicadores
+  // obsoletos.
+  trainedDates = {};
+  localStorage.setItem('airflare_trained_dates_v1', JSON.stringify(trainedDates));
+
   // Resetear posición activa guardada (ejercicio/paso anterior ya no aplica)
   savedActive = null;
   localStorage.removeItem('airflare_active_v1');
 
   setTimeout(() => showToast('¡Nueva semana! El progreso semanal se ha reiniciado 🔄'), 600);
+  return true;
+}
+
+// Re-evalúa archivo + reset semanal cuando la app se REANUDA (no solo en el
+// arranque en frío). En una PWA/móvil el DOMContentLoaded NO vuelve a dispararse
+// al volver de segundo plano, así que sin esto el progreso de la semana anterior
+// seguiría visible al abrir la app en una semana nueva (el bug que el usuario
+// veía "cada vez que entro"). Se llama desde visibilitychange y pageshow.
+function refreshAfterResume() {
+  autoArchiveStaleData();             // preservar en historial lo de la semana previa
+  if (checkWeeklyReset()) {           // ¿cambió la semana? → limpiar y re-renderizar
+    renderDay(currentDayKey);
+    updateAllDayMiniBars();
+  } else {
+    syncCheckboxesFromStorage();      // misma semana: solo re-sincronizar checkboxes
+  }
+  updateTodayIndicators();            // el día también pudo cambiar (cruce de medianoche)
 }
 
 // =============================================================================
@@ -5797,7 +5821,7 @@ window.addEventListener('DOMContentLoaded', () => {
       document.documentElement.classList.add('app-hidden');
 
     } else {
-      syncCheckboxesFromStorage();
+      refreshAfterResume();
       _onCameraAppVisible();
       document.documentElement.classList.remove('app-hidden');
 
@@ -5850,7 +5874,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
   window.addEventListener('pagehide', onPageHide);
-  window.addEventListener('pageshow', syncCheckboxesFromStorage);
+  window.addEventListener('pageshow', refreshAfterResume);
 
   // Advertencia si el navegador está en modo privado (no persiste localStorage)
   try {
@@ -7564,7 +7588,7 @@ function saveSession() {
   const notes = dayNotes[dayKey] || '';
 
   const now = new Date();
-  const dateStr = now.toISOString().split('T')[0];
+  const dateStr = getLocalDateStr(now); // fecha LOCAL (no UTC) — coherente con el resto
   const timeStr = now.toTimeString().slice(0, 5);
 
   let timerSecDone = 0, timerSecTotal = 0;
@@ -7638,7 +7662,7 @@ function autoSaveSessionSilent(dayKey, dateOverride) {
   const completedIds = completedSteps[dayKey] || [];
   if (completedIds.length === 0) return;
 
-  const dateStr = dateOverride || new Date().toISOString().split('T')[0];
+  const dateStr = dateOverride || getLocalDateStr();
 
   // Evitar duplicados: si ya existe sesión para esta fecha+día, no guardar de nuevo
   const alreadySaved = sessionHistory.some(s => s.date === dateStr && s.dayKey === dayKey);
