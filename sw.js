@@ -1,12 +1,18 @@
 // =============================================================================
 // AIRFLARE DASHBOARD — Service Worker (PWA offline support)
-// v2: networkFirst para el HTML principal → siempre recibe actualizaciones
+// v4: stale-while-revalidate para TODO (incluido el HTML) → arranque instantáneo
+//     desde caché en gama baja / mala conexión; la actualización se aplica en el
+//     siguiente arranque. Antes el HTML iba por networkFirst y bloqueaba el
+//     arranque esperando la red.
 // =============================================================================
 
-const CACHE_NAME = 'airflare-v3';
+const CACHE_NAME = 'airflare-v4';
 
-// Archivos que se pre-cachean (recursos estáticos que raramente cambian)
+// Archivos que se pre-cachean (recursos estáticos que raramente cambian).
+// Incluimos el HTML principal para que el primer arranque ya quede offline-ready.
 const STATIC_ASSETS = [
+  './',
+  './index.html',
   './icon.svg',
   './icon-192.png',
   './icon-512.png',
@@ -37,13 +43,10 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch strategy:
-// - HTML principal (index.html / navegación) → networkFirst
-//   Siempre intenta la red primero para recibir actualizaciones;
-//   cae al caché solo si no hay conexión.
-// - Google Fonts → stale-while-revalidate
-// - Otros assets del mismo origen → stale-while-revalidate
-// - Externos → red directa
+// Fetch strategy (todo mismo origen + Google Fonts → stale-while-revalidate):
+// - Devuelve el caché al instante (arranque inmediato, incluso sin red).
+// - Refresca en segundo plano para el próximo arranque.
+// - Externos → red directa (no se interceptan).
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
@@ -57,30 +60,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Mismo origen: networkFirst para HTML, staleWhileRevalidate para el resto
+  // Mismo origen (HTML incluido): caché instantáneo + revalidación en fondo
   if (url.origin === self.location.origin) {
-    const isHtml = request.mode === 'navigate' ||
-                   url.pathname.endsWith('.html') ||
-                   url.pathname === '/' ||
-                   url.pathname.endsWith('/');
-    event.respondWith(isHtml ? networkFirst(request) : staleWhileRevalidate(request));
+    event.respondWith(staleWhileRevalidate(request));
     return;
   }
 });
-
-// Network-first: intenta red, cae a caché si falla
-async function networkFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
-  try {
-    const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
-    return response;
-  } catch {
-    const cached = await cache.match(request);
-    if (cached) return cached;
-    return new Response('Sin conexión', { status: 503 });
-  }
-}
 
 // Stale-while-revalidate: devuelve caché y actualiza en fondo
 async function staleWhileRevalidate(request) {
@@ -90,5 +75,6 @@ async function staleWhileRevalidate(request) {
     if (response.ok) cache.put(request, response.clone());
     return response;
   }).catch(() => null);
-  return cached || await fetchPromise;
+  // Caché primero; si no hay caché, espera la red; si tampoco hay red, 503.
+  return cached || await fetchPromise || new Response('Sin conexión', { status: 503 });
 }
