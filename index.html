@@ -5877,6 +5877,24 @@ window.addEventListener('DOMContentLoaded', () => {
   } catch (e) {
     setTimeout(() => showToast('⚠️ Modo privado detectado: los datos no se guardarán al cerrar.', 'error'), 800);
   }
+
+  // Solicitar almacenamiento PERSISTENTE. Sin esto, el navegador puede BORRAR
+  // localStorage (todo el progreso, notas e historial) cuando el dispositivo
+  // anda bajo de espacio o tras días sin abrir la app (iOS Safari la purga a los
+  // ~7 días). Es la causa más común de "se perdió todo" en una PWA móvil.
+  // persist() se concede solo si la app está instalada o tiene uso recurrente.
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persisted().then(already => {
+      if (already) return; // ya protegido, no volver a pedir
+      return navigator.storage.persist().then(granted => {
+        console[granted ? 'log' : 'warn'](
+          granted
+            ? '[Almacenamiento] Persistencia concedida: los datos no se borrarán automáticamente.'
+            : '[Almacenamiento] Persistencia NO concedida. Instala la app (Añadir a pantalla de inicio) y exporta un backup con frecuencia.'
+        );
+      });
+    }).catch(() => {});
+  }
 });
 
 // =============================================================================
