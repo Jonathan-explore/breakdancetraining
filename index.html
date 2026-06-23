@@ -6698,6 +6698,24 @@ function setScrollBtnVisible(visible) {
 let autoMode    = false;   // secuencia activa
 let autoPaused  = false;   // secuencia pausada a mitad
 let currentPhase = 'idle'; // 'idle'|'prep'|'go'|'step'|'rest'|'reps'|'transition'|'done'
+
+// Wake Lock: evita que la pantalla se apague mientras el cronómetro corre
+let _wakeLock = null;
+async function _acquireWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    if (_wakeLock) return; // ya activo
+    _wakeLock = await navigator.wakeLock.request('screen');
+    _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+  } catch (e) { /* denegado (batería baja, modo ahorro): sin consecuencias */ }
+}
+function _releaseWakeLock() {
+  if (_wakeLock) { _wakeLock.release(); _wakeLock = null; }
+}
+// Al volver de segundo plano la pantalla ya está activa: re-adquirir si sigue corriendo
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && autoMode && !autoPaused) _acquireWakeLock();
+});
 let _bgHideTimestamp  = 0;     // Date.now() al ir a segundo plano
 let _bgWasAutoRunning = false; // si el timer estaba corriendo al ocultarse
 let autoExIdx   = 0;
@@ -6857,6 +6875,7 @@ function startAutoFromStep(exIdx, stepIdx) {
   autoExIdx  = exIdx;
   autoStepIdx = stepIdx;
   setPlayBtn('pause');
+  _acquireWakeLock();
   processAutoStep(exIdx, stepIdx);
 }
 
@@ -7162,6 +7181,7 @@ function pauseAuto() {
   clearTimeout(advanceTimeout);
   autoPaused = true;
   autoMode   = false;
+  _releaseWakeLock();
   setPlayBtn('resume');
   showPhaseChip('⏸ PAUSADO', 'chip-paused');
 }
@@ -7236,6 +7256,7 @@ function stopAuto() {
   autoMode    = false;
   autoPaused  = false;
   currentPhase = 'idle';
+  _releaseWakeLock();
   prepLeft    = 5;
 
   setPlayBtn('play');
