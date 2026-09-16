@@ -8489,6 +8489,12 @@ let _camThumbReady  = false;  // true cuando el <video> oculto de miniaturas ya 
                               // usuario nunca arrastra la barra de progreso)
 let _camWasOpenBeforeHide = false; // true si la cámara estaba activa al pasar la app a 2º plano
                                    // (para reabrir el stream automáticamente al volver)
+let _camRecStartedAt = 0;     // Date.now() al empezar a grabar (duración para el WebM)
+let _camTakeTime    = null;   // Date en que terminó de grabarse la toma actual
+let _camTakeName    = '';     // nombre de archivo (sin extensión); se fija en la 1ª descarga
+let _camTakeNum     = 0;      // nº de toma de este ejercicio hoy
+let _camTrimCount   = 0;      // recortes descargados de la toma actual
+let _camPrepToken   = 0;      // invalida la preparación de una toma cerrada o descartada
 
 function shouldShowCamera(ex) {
   if (['Power', 'Power+', 'Power test'].includes(ex.block)) return true;
@@ -8603,6 +8609,476 @@ function _onCameraAppVisible() {
   if (overlay && overlay.style.display !== 'none') _startCameraStream();
 }
 
+// =============================================================================
+// VÍDEO CON LA DURACIÓN CORRECTA EN LA GALERÍA DEL MÓVIL
+// =============================================================================
+// Por qué la galería decía 0:03 aunque el vídeo durase un minuto:
+// MediaRecorder graba "en directo", sin saber cuánto va a durar la toma.
+//   · MP4 (Chrome actual): escribe un MP4 FRAGMENTADO — una cabecera (moov) con
+//     duración 0 y después trozos moof+mdat de ~3 s (uno por fotograma clave).
+//     La galería de Android no encuentra la duración en la cabecera y se queda
+//     con la del PRIMER trozo: 0:03. Chrome sí recorre todos los trozos, por
+//     eso dentro de la app el vídeo se veía entero.
+//   · WebM (navegadores sin MP4): no escribe el campo Duration.
+// Solución: al terminar la toma se reempaqueta a MP4 normal (tablas de muestras
+// completas + duración real) o se inyecta el Duration en el WebM. No se
+// recomprime nada: mismos fotogramas, misma calidad, tarda milisegundos.
+// El resultado se comprueba con un <video>; si algo no cuadra se usa el vídeo
+// ORIGINAL tal cual: nunca se pierde una toma por este arreglo.
+
+function _mp4U64(view, p) { return view.getUint32(p) * 4294967296 + view.getUint32(p + 4); }
+
+// Lista las cajas MP4 entre [start, end). `lenient`: una caja final cortada se
+// ignora en vez de invalidar todo (solo para el nivel superior del fichero).
+function _mp4Boxes(view, start, end, lenient) {
+  const list = [];
+  let p = start;
+  while (p + 8 <= end) {
+    let size = view.getUint32(p), hdr = 8;
+    if (size === 1) {
+      if (p + 16 > end) break;
+      size = _mp4U64(view, p + 8); hdr = 16;
+    } else if (size === 0) {
+      size = end - p;
+    }
+    if (size < hdr || p + size > end) { if (lenient) break; return null; }
+    const type = String.fromCharCode(view.getUint8(p + 4), view.getUint8(p + 5), view.getUint8(p + 6), view.getUint8(p + 7));
+    list.push({ type, start: p, data: p + hdr, end: p + size });
+    p += size;
+  }
+  return list;
+}
+
+function _mp4Child(view, box, type) {
+  const kids = box ? _mp4Boxes(view, box.data, box.end, false) : null;
+  return (kids && kids.find(b => b.type === type)) || null;
+}
+
+function _mp4Box(type, parts) {
+  let len = 8;
+  parts.forEach(p => { len += p.byteLength; });
+  const out = new Uint8Array(len);
+  new DataView(out.buffer).setUint32(0, len);
+  for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
+  let o = 8;
+  parts.forEach(p => { out.set(p, o); o += p.byteLength; });
+  return out;
+}
+
+// "Full box" con una lista de enteros de 32 bits (los negativos van en complemento a 2)
+function _mp4FullBox32(type, values, version = 0) {
+  const body = new Uint8Array(4 + values.length * 4);
+  const dv = new DataView(body.buffer);
+  body[0] = version;
+  for (let i = 0; i < values.length; i++) dv.setUint32(4 + i * 4, values[i] >>> 0);
+  return _mp4Box(type, [body]);
+}
+
+// Copia una caja mvhd / tkhd / mdhd poniendo la duración real. Campo duration
+// (desde el inicio de los datos): mvhd, mdhd → v0 +16 · v1 +24 ; tkhd → v0 +20 · v1 +28
+function _mp4CopyWithDuration(buf, box, duration) {
+  const out = new Uint8Array(buf.slice(box.start, box.end));
+  const dv  = new DataView(out.buffer);
+  const d   = box.data - box.start;
+  const v1  = out[d] === 1;
+  const off = d + (box.type === 'tkhd' ? (v1 ? 28 : 20) : (v1 ? 24 : 16));
+  if (off + (v1 ? 8 : 4) > out.length) return null;
+  if (v1) { dv.setUint32(off, Math.floor(duration / 4294967296)); dv.setUint32(off + 4, duration >>> 0); }
+  else    { dv.setUint32(off, Math.min(duration, 4294967295)); }
+  return out;
+}
+
+// MP4 fragmentado → MP4 normal. Devuelve { blob, seconds } o null si no aplica
+// (p.ej. Safari ya graba MP4 normal) o si la estructura no es la esperada.
+async function _mp4Defragment(blob) {
+  const buf  = await blob.arrayBuffer();
+  const view = new DataView(buf);
+  const top  = _mp4Boxes(view, 0, buf.byteLength, true);
+  const ftyp  = top.find(b => b.type === 'ftyp');
+  const moov  = top.find(b => b.type === 'moov');
+  const moofs = top.filter(b => b.type === 'moof');
+  if (!ftyp || !moov || !moofs.length) return null;
+
+  const moovKids = _mp4Boxes(view, moov.data, moov.end, false);
+  if (!moovKids) return null;
+  const mvhd  = moovKids.find(b => b.type === 'mvhd');
+  const traks = moovKids.filter(b => b.type === 'trak');
+  if (!mvhd || traks.length !== 1) return null; // la app graba solo vídeo: 1 pista
+  const trak     = traks[0];
+  const trakKids = _mp4Boxes(view, trak.data, trak.end, false);
+  const tkhd     = trakKids && trakKids.find(b => b.type === 'tkhd');
+  const mdia     = trakKids && trakKids.find(b => b.type === 'mdia');
+  const mdiaKids = mdia && _mp4Boxes(view, mdia.data, mdia.end, false);
+  const mdhd     = mdiaKids && mdiaKids.find(b => b.type === 'mdhd');
+  const minf     = mdiaKids && mdiaKids.find(b => b.type === 'minf');
+  const minfKids = minf && _mp4Boxes(view, minf.data, minf.end, false);
+  const stbl     = minfKids && minfKids.find(b => b.type === 'stbl');
+  const stsd     = _mp4Child(view, stbl, 'stsd');
+  if (!tkhd || !mdhd || !stsd) return null;
+
+  const isV1 = b => view.getUint8(b.data) === 1;
+  const movieScale = view.getUint32(mvhd.data + (isV1(mvhd) ? 20 : 12));
+  const mediaScale = view.getUint32(mdhd.data + (isV1(mdhd) ? 20 : 12));
+  const trackId    = view.getUint32(tkhd.data + (isV1(tkhd) ? 20 : 12));
+  if (!movieScale || !mediaScale) return null;
+
+  // Valores por defecto de las muestras (trex); cada fragmento puede sobrescribirlos
+  const trex      = _mp4Child(view, moovKids.find(b => b.type === 'mvex'), 'trex');
+  const trexDur   = trex ? view.getUint32(trex.data + 12) : 0;
+  const trexSize  = trex ? view.getUint32(trex.data + 16) : 0;
+  const trexFlags = trex ? view.getUint32(trex.data + 20) : 0;
+
+  const sizes = [], durs = [], cts = [], sync = [], chunks = [];
+  let mediaTime = null;   // tiempo de decodificación al final de la última muestra
+  let truncated = false;
+
+  for (const moof of moofs) {
+    const moofKids = _mp4Boxes(view, moof.data, moof.end, false);
+    if (!moofKids) return null;
+    for (const traf of moofKids) {
+      if (traf.type !== 'traf') continue;
+      const kids = _mp4Boxes(view, traf.data, traf.end, false);
+      const tfhd = kids && kids.find(b => b.type === 'tfhd');
+      if (!tfhd) return null;
+      if (view.getUint32(tfhd.data + 4) !== trackId) continue;
+      const hf = view.getUint32(tfhd.data) & 0xFFFFFF;
+      let p = tfhd.data + 8, base = moof.start;
+      let defDur = trexDur, defSize = trexSize, defFlags = trexFlags;
+      if (hf & 0x01) { base = _mp4U64(view, p); p += 8; }
+      if (hf & 0x02) p += 4;
+      if (hf & 0x08) { defDur   = view.getUint32(p); p += 4; }
+      if (hf & 0x10) { defSize  = view.getUint32(p); p += 4; }
+      if (hf & 0x20) { defFlags = view.getUint32(p); p += 4; }
+
+      // Si entre dos fragmentos hay un hueco de tiempo, se alarga la última
+      // muestra: así el vídeo conserva el tiempo real de la toma.
+      const tfdt = kids.find(b => b.type === 'tfdt');
+      if (tfdt) {
+        const t = isV1(tfdt) ? _mp4U64(view, tfdt.data + 4) : view.getUint32(tfdt.data + 4);
+        if (mediaTime === null) mediaTime = t;
+        else if (durs.length && t !== mediaTime && durs[durs.length - 1] + (t - mediaTime) > 0) {
+          durs[durs.length - 1] += t - mediaTime;
+          mediaTime = t;
+        }
+      }
+
+      let cursor = base;
+      for (const trun of kids) {
+        if (trun.type !== 'trun') continue;
+        const tf     = view.getUint32(trun.data) & 0xFFFFFF;
+        const signed = view.getUint8(trun.data) === 1;
+        const count  = view.getUint32(trun.data + 4);
+        let q = trun.data + 8, firstFlags = null;
+        if (tf & 0x01) { cursor = base + view.getInt32(q); q += 4; }
+        if (tf & 0x04) { firstFlags = view.getUint32(q); q += 4; }
+        const perSample = [0x100, 0x200, 0x400, 0x800].filter(f => tf & f).length * 4;
+        if (q + count * perSample > trun.end) return null;
+
+        const s0 = sizes.length;
+        let bytes = 0, runDur = 0;
+        for (let i = 0; i < count; i++) {
+          let dur = defDur, size = defSize, ct = 0;
+          let flags = (i === 0 && firstFlags !== null) ? firstFlags : defFlags;
+          if (tf & 0x100) { dur  = view.getUint32(q); q += 4; }
+          if (tf & 0x200) { size = view.getUint32(q); q += 4; }
+          if (tf & 0x400) { if (!(i === 0 && firstFlags !== null)) flags = view.getUint32(q); q += 4; }
+          if (tf & 0x800) { ct = signed ? view.getInt32(q) : view.getUint32(q); q += 4; }
+          sizes.push(size); durs.push(dur); cts.push(ct);
+          sync.push(!(flags & 0x10000)); // bit sample_is_non_sync_sample
+          bytes += size; runDur += dur;
+        }
+        if (cursor + bytes > buf.byteLength) {
+          // Último trozo incompleto: fuera sus muestras, lo anterior se conserva
+          sizes.length = s0; durs.length = s0; cts.length = s0; sync.length = s0;
+          truncated = true;
+          break;
+        }
+        if (count) chunks.push({ offset: cursor, count, bytes });
+        cursor += bytes;
+        mediaTime = (mediaTime || 0) + runDur;
+      }
+      if (truncated) break;
+    }
+    if (truncated) break;
+  }
+
+  const n = sizes.length;
+  const mediaDuration = durs.reduce((a, b) => a + b, 0);
+  if (!n || !chunks.length || !(mediaDuration > 0) || !sync.some(Boolean)) return null;
+  const movieDuration = Math.round(mediaDuration * movieScale / mediaScale);
+
+  // Tablas de muestras (formato plano: [nº de entradas, ...valores])
+  const stts = [];
+  for (let i = 0; i < n; i++) {
+    if (stts.length && stts[stts.length - 1] === durs[i]) stts[stts.length - 2]++;
+    else stts.push(1, durs[i]);
+  }
+  let cttsBox = null;
+  if (cts.some(c => c !== 0)) {
+    const ctts = [];
+    for (let i = 0; i < n; i++) {
+      if (ctts.length && ctts[ctts.length - 1] === cts[i]) ctts[ctts.length - 2]++;
+      else ctts.push(1, cts[i]);
+    }
+    cttsBox = _mp4FullBox32('ctts', [ctts.length / 2].concat(ctts), cts.some(c => c < 0) ? 1 : 0);
+  }
+  let stssBox = null;
+  if (!sync.every(Boolean)) {
+    const keys = [];
+    sync.forEach((s, i) => { if (s) keys.push(i + 1); });
+    stssBox = _mp4FullBox32('stss', [keys.length].concat(keys));
+  }
+  const stsc = [];
+  chunks.forEach((c, i) => {
+    if (!stsc.length || stsc[stsc.length - 2] !== c.count) stsc.push(i + 1, c.count, 1);
+  });
+  const sttsBox = _mp4FullBox32('stts', [stts.length / 2].concat(stts));
+  const stscBox = _mp4FullBox32('stsc', [stsc.length / 3].concat(stsc));
+  const stszBox = _mp4FullBox32('stsz', [0, n].concat(sizes));
+  const mvhdNew = _mp4CopyWithDuration(buf, mvhd, movieDuration);
+  const tkhdNew = _mp4CopyWithDuration(buf, tkhd, movieDuration);
+  const mdhdNew = _mp4CopyWithDuration(buf, mdhd, mediaDuration);
+  if (!mvhdNew || !tkhdNew || !mdhdNew) return null;
+
+  const raw = b => new Uint8Array(buf, b.start, b.end - b.start);
+  const buildMoov = offsets => {
+    const stblNew = _mp4Box('stbl', [raw(stsd), sttsBox, cttsBox, stssBox, stscBox, stszBox,
+      _mp4FullBox32('stco', [offsets.length].concat(offsets))].filter(Boolean));
+    const minfNew = _mp4Box('minf', minfKids.map(b => b === stbl ? stblNew : raw(b)));
+    const mdiaNew = _mp4Box('mdia', mdiaKids.map(b => b === mdhd ? mdhdNew : b === minf ? minfNew : raw(b)));
+    // edts se quita: sus duraciones serían las de la cabecera vacía
+    const trakNew = _mp4Box('trak', trakKids.filter(b => b.type !== 'edts')
+      .map(b => b === tkhd ? tkhdNew : b === mdia ? mdiaNew : raw(b)));
+    // mvex se quita: es lo que marca el fichero como fragmentado
+    return _mp4Box('moov', moovKids.filter(b => b.type !== 'mvex')
+      .map(b => b === mvhd ? mvhdNew : b === trak ? trakNew : raw(b)));
+  };
+
+  // Estructura final: ftyp · moov · mdat (con los datos de todos los trozos en orden)
+  const totalBytes = chunks.reduce((a, c) => a + c.bytes, 0);
+  const ftypBytes  = raw(ftyp);
+  const dataStart  = ftypBytes.byteLength + buildMoov(chunks.map(() => 0)).byteLength + 8;
+  if (dataStart + totalBytes > 0xFFFFFFFF) return null;
+  let off = dataStart;
+  const moovBytes = buildMoov(chunks.map(c => { const o = off; off += c.bytes; return o; }));
+  const mdatHdr = _mp4Box('mdat', []);
+  new DataView(mdatHdr.buffer).setUint32(0, totalBytes + 8);
+
+  const parts = [ftypBytes, moovBytes, mdatHdr];
+  chunks.forEach(c => parts.push(blob.slice(c.offset, c.offset + c.bytes)));
+  return { blob: new Blob(parts, { type: blob.type }), seconds: mediaDuration / mediaScale };
+}
+
+// ── WebM: inyectar la duración que MediaRecorder no escribe ────────────────────
+const _EBML_ID_SEGMENT  = 0x18538067;
+const _EBML_ID_INFO     = 0x1549A966;
+const _EBML_ID_TSCALE   = 0x2AD7B1;
+const _EBML_ID_DURATION = 0x4489;
+
+function _ebmlReadId(view, pos) {
+  const first = view.getUint8(pos);
+  let length = 1, mask = 0x80;
+  while (length <= 4 && !(first & mask)) { mask >>= 1; length++; }
+  if (length > 4 || pos + length > view.byteLength) return null;
+  let id = 0;
+  for (let i = 0; i < length; i++) id = id * 256 + view.getUint8(pos + i);
+  return { id, length };
+}
+
+// Devuelve { value, length, unknown }. `unknown` = tamaño "todo unos", que es lo
+// que escribe MediaRecorder en el Segment porque va en streaming.
+function _ebmlReadVint(view, pos) {
+  const first = view.getUint8(pos);
+  let length = 1, mask = 0x80;
+  while (length <= 8 && !(first & mask)) { mask >>= 1; length++; }
+  if (length > 8 || pos + length > view.byteLength) return null;
+  let value = first & (mask - 1);
+  let unknown = value === (mask - 1);
+  for (let i = 1; i < length; i++) {
+    const b = view.getUint8(pos + i);
+    if (b !== 0xFF) unknown = false;
+    value = value * 256 + b;
+  }
+  return { value, length, unknown };
+}
+
+// Escribe `value` como VINT de EXACTAMENTE `length` bytes (para sustituir un
+// tamaño sin mover el resto del fichero). null si no cabe.
+function _ebmlWriteVint(value, length) {
+  const max = Math.pow(2, 7 * length) - 1;
+  if (value < 0 || value >= max) return null; // el patrón "todo unos" está reservado
+  const bytes = new Uint8Array(length);
+  let v = value;
+  for (let i = length - 1; i >= 0; i--) { bytes[i] = v % 256; v = Math.floor(v / 256); }
+  bytes[0] |= (0x80 >> (length - 1));
+  return bytes;
+}
+
+// Devuelve el blob con Duration, o el mismo blob si no se pudo.
+async function _fixWebmDuration(blob, durationMs) {
+  const buf  = await blob.arrayBuffer();
+  const view = new DataView(buf);
+  const size = buf.byteLength;
+
+  // 1) Segment
+  let pos = 0, segSizePos = -1, segSize = null, segDataStart = -1;
+  while (pos < size) {
+    const id = _ebmlReadId(view, pos);                 if (!id) return blob;
+    const sz = _ebmlReadVint(view, pos + id.length);   if (!sz) return blob;
+    const dataStart = pos + id.length + sz.length;
+    if (id.id === _EBML_ID_SEGMENT) {
+      segSizePos = pos + id.length; segSize = sz; segDataStart = dataStart; break;
+    }
+    if (sz.unknown) return blob;
+    pos = dataStart + sz.value;
+  }
+  if (segDataStart < 0) return blob;
+
+  // 2) Info dentro de Segment
+  const segEnd = segSize.unknown ? size : Math.min(size, segDataStart + segSize.value);
+  let infoSizePos = -1, infoSize = null, infoDataStart = -1;
+  pos = segDataStart;
+  while (pos < segEnd) {
+    const id = _ebmlReadId(view, pos);                        if (!id) return blob;
+    const sz = _ebmlReadVint(view, pos + id.length);          if (!sz || sz.unknown) return blob;
+    const dataStart = pos + id.length + sz.length;
+    if (id.id === _EBML_ID_INFO) {
+      infoSizePos = pos + id.length; infoSize = sz; infoDataStart = dataStart; break;
+    }
+    pos = dataStart + sz.value;
+  }
+  if (infoDataStart < 0) return blob;
+  const infoDataEnd = infoDataStart + infoSize.value;
+  if (infoDataEnd > size) return blob;
+
+  // 3) TimecodeScale (por defecto 1.000.000 ns = 1 ms) y Duration si ya existe
+  let timecodeScale = 1000000, durPos = -1, durLen = 0;
+  pos = infoDataStart;
+  while (pos < infoDataEnd) {
+    const id = _ebmlReadId(view, pos);                        if (!id) return blob;
+    const sz = _ebmlReadVint(view, pos + id.length);          if (!sz || sz.unknown) return blob;
+    const dataStart = pos + id.length + sz.length;
+    if (id.id === _EBML_ID_TSCALE) {
+      let v = 0;
+      for (let i = 0; i < sz.value; i++) v = v * 256 + view.getUint8(dataStart + i);
+      if (v > 0) timecodeScale = v;
+    } else if (id.id === _EBML_ID_DURATION) {
+      durPos = dataStart; durLen = sz.value;
+    }
+    pos = dataStart + sz.value;
+  }
+
+  const duration = durationMs * 1000000 / timecodeScale; // en unidades de TimecodeScale
+
+  // 3a) Ya hay un Duration (normalmente a 0): se sobrescribe sin mover un byte
+  if (durPos >= 0 && (durLen === 4 || durLen === 8)) {
+    if (durLen === 8) view.setFloat64(durPos, duration);
+    else              view.setFloat32(durPos, duration);
+    return new Blob([buf], { type: blob.type });
+  }
+
+  // 3b) No existe: se inserta al final de Info y se amplía el tamaño de Info
+  //     (y el del Segment, si no es "desconocido")
+  const DUR_LEN   = 11; // id(2) + tamaño(1) + float64(8)
+  const infoBytes = _ebmlWriteVint(infoSize.value + DUR_LEN, infoSize.length);
+  if (!infoBytes) return blob;
+  let segBytes = null;
+  if (!segSize.unknown) {
+    segBytes = _ebmlWriteVint(segSize.value + DUR_LEN, segSize.length);
+    if (!segBytes) return blob;
+  }
+
+  const src = new Uint8Array(buf);
+  const out = new Uint8Array(size + DUR_LEN);
+  out.set(src.subarray(0, infoDataEnd), 0);
+  out.set(infoBytes, infoSizePos);
+  if (segBytes) out.set(segBytes, segSizePos);
+
+  const el = new Uint8Array(DUR_LEN);
+  const ev = new DataView(el.buffer);
+  ev.setUint8(0, 0x44); ev.setUint8(1, 0x89); // ID Duration
+  ev.setUint8(2, 0x88);                       // tamaño = 8 bytes
+  ev.setFloat64(3, duration);
+  out.set(el, infoDataEnd);
+  out.set(src.subarray(infoDataEnd), infoDataEnd + DUR_LEN);
+  return new Blob([out], { type: blob.type });
+}
+
+// Carga los metadatos en un <video> suelto: { duration, width } (NaN/0 si falla)
+function _probeVideo(blob, timeoutMs = 4000) {
+  return new Promise(resolve => {
+    const v   = document.createElement('video');
+    const url = URL.createObjectURL(blob);
+    let finished = false;
+    const end = (duration, width) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      v.onloadedmetadata = v.onerror = null;
+      v.removeAttribute('src'); v.load();
+      URL.revokeObjectURL(url);
+      resolve({ duration, width });
+    };
+    const timer = setTimeout(() => end(NaN, 0), timeoutMs);
+    v.muted = true;
+    v.preload = 'metadata';
+    v.onloadedmetadata = () => end(v.duration, v.videoWidth);
+    v.onerror = () => end(NaN, 0);
+    v.src = url;
+  });
+}
+
+// Punto único de entrada: devuelve el vídeo arreglado o, ante cualquier duda, el original.
+async function _fixRecordedVideo(blob, wallMs) {
+  try {
+    let fixed = null, expected = NaN;
+    if (/mp4/i.test(blob.type)) {
+      const r = await _mp4Defragment(blob);
+      if (r) { fixed = r.blob; expected = r.seconds; }
+    } else if (/webm/i.test(blob.type) && wallMs > 0) {
+      fixed = await _fixWebmDuration(blob, wallMs);
+      expected = wallMs / 1000;
+    }
+    if (!fixed || fixed === blob) return blob;
+    const probe = await _probeVideo(fixed);
+    if (probe.width > 0 && Math.abs(probe.duration - expected) < 1) return fixed;
+  } catch (e) { /* estructura inesperada: se usa el original */ }
+  return blob;
+}
+
+// =============================================================================
+// NOMBRE ÚNICO POR TOMA
+// =============================================================================
+// Antes el archivo era `${ejercicio}_${fecha}`: todas las tomas del mismo
+// ejercicio en el mismo día se llamaban IGUAL y el móvil las trataba como el
+// mismo vídeo ("ya descargado"). Ahora cada toma lleva número y hora de grabación:
+//   Airflare con banda_toma3_2026-09-16_18-42-05.mp4
+// El número se asigna en la PRIMERA descarga de la toma (las descartadas no
+// gastan número, así en la galería van seguidas), cuenta por ejercicio y día
+// y sobrevive a cerrar la app. La hora garantiza que nunca se repita un nombre
+// aunque el contador se pierda.
+const _CAM_TAKES_KEY = 'airflare_cam_tomas_v1';
+
+function _camFileBase() {
+  if (_camTakeName) return _camTakeName;
+  const when  = _camTakeTime || new Date();
+  const day   = getLocalDateStr(when);
+  const label = (_camLabel || 'video').replace(/[\/\\:*?"<>|]/g, '').trim().slice(0, 60) || 'video';
+  const store = safeParse(_CAM_TAKES_KEY, {});
+  // Solo se guardan los contadores de ese día: el objeto no crece con los días
+  const counts = (store && store.date === day && store.counts) ? store.counts : {};
+  const n = (counts[label] || 0) + 1;
+  counts[label] = n;
+  try { localStorage.setItem(_CAM_TAKES_KEY, JSON.stringify({ date: day, counts })); } catch (e) { /* cuota llena */ }
+  const z = v => String(v).padStart(2, '0');
+  _camTakeNum  = n;
+  _camTakeName = `${label}_toma${n}_${day}_${z(when.getHours())}-${z(when.getMinutes())}-${z(when.getSeconds())}`;
+  return _camTakeName;
+}
+
+// La extensión sale del vídeo real, no del formato pedido al grabar
+function _camExt(blob) { return /mp4/i.test(blob.type) ? 'mp4' : 'webm'; }
+
 function startCameraRecording() {
   if (!_camStream) return;
   _camChunks = [];
@@ -8616,6 +9092,7 @@ function startCameraRecording() {
   _camRecorder.ondataavailable = e => { if (e.data.size > 0) _camChunks.push(e.data); };
   _camRecorder.onstop = _onRecordingDone;
   _camRecorder.start(200);
+  _camRecStartedAt = Date.now();
 
   _setCamState('recording');
   _startRecTimer();
@@ -8745,7 +9222,7 @@ function _exportTrimmedClip(srcVid, start, end, onDone) {
   tv.src = _camBlobUrl;
   tv.muted = true;
 
-  const finish = (blob) => { tv.src = ''; onDone(blob); };
+  const finish = (blob, wallMs) => { tv.src = ''; onDone(blob, wallMs); };
 
   tv.onloadedmetadata = () => {
     tv.currentTime = start;
@@ -8754,16 +9231,18 @@ function _exportTrimmedClip(srcVid, start, end, onDone) {
       let stream;
       try { stream = tv.captureStream(); } catch { finish(null); return; }
 
-      const mime = ['video/webm;codecs=vp9', 'video/webm']
+      // Mismo orden que la grabación (antes salía siempre WebM, pero se guardaba
+      // con la extensión del vídeo original: bytes WebM dentro de un .mp4).
+      const mime = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm']
         .find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
       const chunks = [];
-      let recorder;
+      let recorder, startedAt = 0;
       try {
         recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 1_000_000 });
       } catch { finish(null); return; }
 
       recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-      recorder.onstop = () => finish(new Blob(chunks, { type: mime }));
+      recorder.onstop = () => finish(new Blob(chunks, { type: recorder.mimeType || mime }), Date.now() - startedAt);
 
       const stopAtEnd = () => {
         if (tv.currentTime >= end || tv.ended) {
@@ -8775,6 +9254,7 @@ function _exportTrimmedClip(srcVid, start, end, onDone) {
       tv.addEventListener('timeupdate', stopAtEnd);
 
       recorder.start(200);
+      startedAt = Date.now();
       tv.play().catch(() => { recorder.stop(); });
     };
   };
@@ -8845,8 +9325,32 @@ function _onRecordingDone() {
   const camBtn = document.getElementById('btn-timer-cam');
   if (camBtn) camBtn.classList.remove('recording');
 
+  const mime   = (_camRecorder && _camRecorder.mimeType) || _camMimeType;
+  const raw    = new Blob(_camChunks, { type: mime });
+  const wallMs = Date.now() - _camRecStartedAt;
+  const token  = ++_camPrepToken;
+  _camTakeTime  = new Date();
+  _camTakeName  = '';
+  _camTakeNum   = 0;
+  _camTrimCount = 0;
+
+  _stopCamStream();
+  _setCamState('playback');
+  const dlBtn = document.getElementById('btn-cam-download');
+  if (dlBtn) { dlBtn.disabled = true; dlBtn.textContent = '⏳ Preparando…'; }
+
+  // Se reempaqueta ANTES de reproducir: la barra, el recorte y la descarga usan
+  // ya el vídeo con la duración correcta.
+  _fixRecordedVideo(raw, wallMs).then(blob => {
+    if (token !== _camPrepToken) return; // cámara cerrada o toma descartada mientras tanto
+    if (dlBtn) { dlBtn.disabled = false; dlBtn.textContent = '⬇ Descargar'; }
+    _showRecordedTake(blob);
+  });
+}
+
+function _showRecordedTake(blob) {
   if (_camBlobUrl) { URL.revokeObjectURL(_camBlobUrl); _camBlobUrl = null; }
-  _camBlob    = new Blob(_camChunks, { type: _camMimeType });
+  _camBlob    = blob;
   _camBlobUrl = URL.createObjectURL(_camBlob);
 
   const vid = document.getElementById('cam-playback');
@@ -8915,8 +9419,6 @@ function _onRecordingDone() {
     if (playBtn) playBtn.textContent = '▶ Reproducir';
   };
 
-  _stopCamStream();
-  _setCamState('playback');
   setCamSpeed(1);
 }
 
@@ -8941,13 +9443,11 @@ function setCamSpeed(speed) {
   if (btn) btn.classList.add('active');
 }
 
-function _triggerCamDownload(blob, ext) {
-  const date = new Date().toISOString().split('T')[0];
-  const safeName = (_camLabel || 'video').replace(/[\/\\:*?"<>|]/g, '').trim();
+function _triggerCamDownload(blob, fileName) {
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href    = url;
-  a.download = `${safeName}_${date}.${ext}`;
+  a.download = fileName;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -8956,33 +9456,38 @@ function _triggerCamDownload(blob, ext) {
 
 function downloadCamVideo() {
   if (!_camBlob || _camExporting) return;
-  const ext = _camMimeType.includes('mp4') ? 'mp4' : 'webm';
   const vid = document.getElementById('cam-playback');
 
   const hasTrim = _camTrimStart !== null && _camTrimEnd !== null && _camTrimEnd > _camTrimStart;
   if (!hasTrim) {
-    _triggerCamDownload(_camBlob, ext);
-    showToast('Vídeo descargado ✓');
+    _triggerCamDownload(_camBlob, `${_camFileBase()}.${_camExt(_camBlob)}`);
+    showToast(`Vídeo descargado ✓ (toma ${_camTakeNum})`);
     return;
   }
 
   // Exportar solo el segmento marcado
   _camExporting = true;
+  const token = _camPrepToken;
   const dlBtn = document.getElementById('btn-cam-download');
   if (dlBtn) { dlBtn.disabled = true; dlBtn.textContent = '⏳ Recortando…'; }
   showToast('Recortando vídeo, un momento…');
 
-  _exportTrimmedClip(vid, _camTrimStart, _camTrimEnd, (blob) => {
-    _camExporting = false;
-    if (dlBtn) { dlBtn.disabled = false; dlBtn.textContent = '⬇ Descargar'; }
-    if (blob && blob.size > 0) {
-      _triggerCamDownload(blob, _camMimeType.includes('mp4') ? 'mp4' : 'webm');
-      showToast('Recorte descargado ✓');
-    } else {
-      // Si la exportación falla, descargar el vídeo completo como respaldo
-      _triggerCamDownload(_camBlob, ext);
-      showToast('No se pudo recortar; se descargó el vídeo completo', 'error');
-    }
+  _exportTrimmedClip(vid, _camTrimStart, _camTrimEnd, (clip, wallMs) => {
+    if (token !== _camPrepToken) return; // cámara cerrada o toma descartada mientras tanto
+    const ready = (clip && clip.size > 0) ? _fixRecordedVideo(clip, wallMs) : Promise.resolve(null);
+    ready.then(blob => {
+      if (token !== _camPrepToken) return;
+      _camExporting = false;
+      if (dlBtn) { dlBtn.disabled = false; dlBtn.textContent = '⬇ Descargar'; }
+      if (blob) {
+        _triggerCamDownload(blob, `${_camFileBase()}_recorte${++_camTrimCount}.${_camExt(blob)}`);
+        showToast(`Recorte descargado ✓ (toma ${_camTakeNum})`);
+      } else {
+        // Si la exportación falla, descargar el vídeo completo como respaldo
+        _triggerCamDownload(_camBlob, `${_camFileBase()}.${_camExt(_camBlob)}`);
+        showToast('No se pudo recortar; se descargó el vídeo completo', 'error');
+      }
+    });
   });
 }
 
@@ -8993,6 +9498,7 @@ function discardCamVideo() {
 }
 
 function _clearPlayback() {
+  _camPrepToken++; // una toma o un recorte que aún se esté preparando ya no se muestra ni se descarga
   const vid = document.getElementById('cam-playback');
   const bar = document.getElementById('cam-seek-bar');
   const tv  = document.getElementById('cam-thumb-video');
