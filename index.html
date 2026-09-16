@@ -3982,9 +3982,73 @@ body.list-open .grid-right-col { display: flex; }
 .day-picker-actions { display: flex; justify-content: center; gap: 10px; }
 .day-picker-actions .btn-scroll-step { font-size: 13px; padding: 8px 18px; }
 
+/* ══ AGUA DE FONDO ══════════════════════════════════════════════════════════
+   El fondo se "llena" a medida que pasa el tiempo del ejercicio/descanso, para
+   ver de lejos cuánto queda. Bajo consumo: solo se animan transform (lo mueve la
+   GPU, sin repintar): el nivel avanza con una transición lineal de 1 s por tick
+   y la ola se desplaza en bucle. Todo se congela en pausa y en segundo plano. */
+.dashboard-wrapper, .main-content { background-color: transparent; }
+.dashboard-wrapper { position: relative; z-index: 1; }
+
+.water {
+  --water: #bcdaf8;                       /* ejercicio: azul */
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.water.on { opacity: 1; }
+.water.mode-rest { --water: #bce9cd; }    /* descanso: verde */
+.water.ending    { --water: #ffcaa6; }    /* últimos 5 s: naranja */
+
+.water-body {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 100%;
+  background: var(--water);
+  transform: translateY(100%);
+  transition: transform 1s linear, background-color 0.6s ease;
+  will-change: transform;
+}
+.water.draining .water-body { transition: transform 0.7s ease-out, background-color 0.6s ease; }
+
+.water-wave {
+  position: absolute; left: 0; bottom: calc(100% - 1px);
+  width: 200%; height: 22px;
+  fill: var(--water);
+  transition: fill 0.6s ease;
+  animation: waterWave 7s linear infinite;
+  animation-play-state: paused;
+  will-change: transform;
+}
+.water.on:not(.paused) .water-wave { animation-play-state: running; }
+.app-hidden .water-wave { animation-play-state: paused !important; }
+@keyframes waterWave { to { transform: translateX(-50%); } }
+
+/* Con agua, la tarjeta del contador se vuelve translúcida para dejarla ver */
+.timer-section.glass-card {
+  transition: background-color 0.5s ease,
+              border-color var(--dur-mid) var(--ease-smooth),
+              box-shadow var(--dur-mid) var(--ease-smooth);
+}
+body.water-on .timer-section.glass-card { background-color: rgba(255, 255, 255, 0.55); }
+
+@media (prefers-reduced-motion: reduce) {
+  .water-wave { animation: none; }
+  .water-body { transition: none; }
+}
+
 </style>
 </head>
 <body>
+
+  <!-- Agua de fondo: se llena con el tiempo del paso (ver updateWater) -->
+  <div class="water" id="water" aria-hidden="true">
+    <div class="water-body">
+      <svg class="water-wave" viewBox="0 0 1200 40" preserveAspectRatio="none">
+        <path d="M0 20 Q150 4 300 20 T600 20 T900 20 T1200 20 V40 H0 Z"/>
+      </svg>
+    </div>
+  </div>
 
   <!-- Contenedor Principal (Layout de Panel de Control) -->
   <div class="dashboard-wrapper">
@@ -7093,6 +7157,7 @@ function runPrepThenStep(duration) {
   prepLeft = 5;
   stepTotalDuration = duration;
   timerSecondsLeft = duration;
+  waterOff();
   showPrepUI(prepLeft);
   showPhaseChip('PREPÁRATE', 'chip-prep');
   updateStepProgressBar(duration, duration);
@@ -7125,11 +7190,13 @@ function runStepPhase(duration) {
   showTimerUI(timerSecondsLeft);
   showPhaseChip('EN CURSO', 'chip-active');
   updateStepProgressBar(duration, duration);
+  updateWater(duration, duration, 'work');
 
   timerInterval = setInterval(() => {
     timerSecondsLeft--;
     showTimerUI(timerSecondsLeft);
     updateStepProgressBar(timerSecondsLeft, stepTotalDuration);
+    updateWater(timerSecondsLeft, stepTotalDuration, 'work');
     if (timerSecondsLeft <= 3 && timerSecondsLeft > 0) playLastSeconds();
     if (timerSecondsLeft <= 0) {
       clearInterval(timerInterval); timerInterval = null;
@@ -7156,11 +7223,13 @@ function runRestStep(duration) {
   showTimerUI(timerSecondsLeft);
   showPhaseChip('💤 DESCANSO', 'chip-rest');
   updateStepProgressBar(duration, duration);
+  updateWater(duration, duration, 'rest');
 
   timerInterval = setInterval(() => {
     timerSecondsLeft--;
     showTimerUI(timerSecondsLeft);
     updateStepProgressBar(timerSecondsLeft, stepTotalDuration);
+    updateWater(timerSecondsLeft, stepTotalDuration, 'rest');
     if (timerSecondsLeft <= 3 && timerSecondsLeft > 0) playLastSeconds();
     if (timerSecondsLeft <= 0) {
       clearInterval(timerInterval); timerInterval = null;
@@ -7181,6 +7250,7 @@ function onRestTimerComplete() {
 // =============================================================================
 function runRepsStep(step) {
   currentPhase = 'reps';
+  waterOff();
   showRepsUI(step.reps);
   showPhaseChip('SERIES / REPS', 'chip-reps');
   showRepsDoneBtn(true);
@@ -7246,6 +7316,7 @@ function autoAdvanceToNext(isSkip) {
     // Fin del ejercicio
     autoMode = false;
     currentPhase = 'done';
+    waterOff(1200); // dejar ver el vaso lleno un momento y vaciar
     showPhaseChip('✓ EJERCICIO COMPLETO', 'chip-done');
     playDoneSound();
     setPlayBtn('play');
@@ -7325,6 +7396,7 @@ function getTransitionDuration(fromExIdx, fromStepIdx, toExIdx, toStepIdx) {
 function runTransitionPhase(nextExIdx, nextStepIdx) {
   clearAutoSchedule();
   showRepsDoneBtn(false);
+  waterOff();
   const duration = getTransitionDuration(autoExIdx, autoStepIdx, nextExIdx, nextStepIdx);
 
   // Actualizar índices ANTES de la transición para que skip funcione
@@ -7362,6 +7434,7 @@ function pauseAuto() {
   clearAutoSchedule();
   autoPaused = true;
   autoMode   = false;
+  waterPause();
   _releaseWakeLock();
   setPlayBtn('resume');
   showPhaseChip('⏸ PAUSADO', 'chip-paused');
@@ -7406,10 +7479,12 @@ function resumePrepPhase() {
 function resumeStepPhase() {
   showPhaseChip('EN CURSO', 'chip-active');
   showTimerUI(timerSecondsLeft);
+  updateWater(timerSecondsLeft, stepTotalDuration, 'work');
   timerInterval = setInterval(() => {
     timerSecondsLeft--;
     showTimerUI(timerSecondsLeft);
     updateStepProgressBar(timerSecondsLeft, stepTotalDuration);
+    updateWater(timerSecondsLeft, stepTotalDuration, 'work');
     if (timerSecondsLeft <= 3 && timerSecondsLeft > 0) playLastSeconds();
     if (timerSecondsLeft <= 0) {
       clearInterval(timerInterval); timerInterval = null;
@@ -7421,10 +7496,12 @@ function resumeStepPhase() {
 function resumeRestPhase() {
   showPhaseChip('💤 DESCANSO', 'chip-rest');
   showTimerUI(timerSecondsLeft);
+  updateWater(timerSecondsLeft, stepTotalDuration, 'rest');
   timerInterval = setInterval(() => {
     timerSecondsLeft--;
     showTimerUI(timerSecondsLeft);
     updateStepProgressBar(timerSecondsLeft, stepTotalDuration);
+    updateWater(timerSecondsLeft, stepTotalDuration, 'rest');
     if (timerSecondsLeft <= 3 && timerSecondsLeft > 0) playLastSeconds();
     if (timerSecondsLeft <= 0) {
       clearInterval(timerInterval); timerInterval = null;
@@ -7438,6 +7515,7 @@ function stopAuto() {
   autoMode    = false;
   autoPaused  = false;
   currentPhase = 'idle';
+  waterOff();
   _releaseWakeLock();
   prepLeft    = 5;
 
@@ -7475,6 +7553,7 @@ function stopCurrentIntervals() {
 function clearAutoSchedule() {
   if (restTimerInterval) {
     document.querySelectorAll('.btn-rest').forEach(b => b.classList.remove('active-rest'));
+    waterOff(); // el agua del descanso rápido no debe quedarse al cancelarlo
   }
   stopCurrentIntervals();
   clearTimeout(goTimeout);      goTimeout = null;
@@ -7617,6 +7696,46 @@ function setPlayBtn(state) {
   }
 }
 
+// ── Agua de fondo ────────────────────────────────────────────────────────────
+// Nivel = fracción de tiempo transcurrido. Una escritura de transform por tick;
+// la transición CSS de 1 s lineal lo hace fluido entre ticks.
+let _waterLevel = null;          // null = apagada
+let _waterDrainTimeout = null;
+function updateWater(left, total, mode) {
+  clearTimeout(_waterDrainTimeout); _waterDrainTimeout = null;
+  const el = _te('water');
+  if (!el || !total) return;
+  const level = Math.max(0, Math.min(1, 1 - left / total));
+  const draining = _waterLevel !== null && level < _waterLevel - 0.001;
+  el.classList.toggle('draining', draining);
+  el.classList.toggle('mode-rest', mode === 'rest');
+  el.classList.toggle('ending', left <= 5);
+  el.classList.remove('paused');
+  if (_waterLevel === null) {
+    el.classList.add('on');
+    document.body.classList.add('water-on');
+  }
+  el.firstElementChild.style.transform = `translateY(${((1 - level) * 100).toFixed(2)}%)`;
+  _waterLevel = level;
+}
+
+function waterOff(delayMs) {
+  clearTimeout(_waterDrainTimeout); _waterDrainTimeout = null;
+  if (delayMs) { _waterDrainTimeout = setTimeout(() => waterOff(0), delayMs); return; }
+  if (_waterLevel === null) return;
+  const el = _te('water');
+  if (!el) return;
+  el.classList.add('draining');
+  el.classList.remove('on', 'ending', 'paused');
+  document.body.classList.remove('water-on');
+  el.firstElementChild.style.transform = 'translateY(100%)';
+  _waterLevel = null;
+}
+
+function waterPause() {
+  _te('water')?.classList.add('paused');
+}
+
 let _lastProgressPct = null;
 function updateStepProgressBar(left, total) {
   if (!total) return;
@@ -7647,16 +7766,19 @@ function startRestTimer(seconds) {
   showPhaseChip('💤 DESCANSO RÁPIDO', 'chip-rest');
   showTimerUI(left);
   updateStepProgressBar(left, seconds);
+  updateWater(left, seconds, 'rest');
   playBeep(440, 300);
 
   restTimerInterval = setInterval(() => {
     left--;
     showTimerUI(left);
     updateStepProgressBar(left, seconds);
+    updateWater(left, seconds, 'rest');
     if (left <= 3 && left > 0) playLastSeconds();
     if (left <= 0) {
       clearInterval(restTimerInterval); restTimerInterval = null;
       document.querySelectorAll('.btn-rest').forEach(b => b.classList.remove('active-rest'));
+      waterOff(1500);
       playChangeSound();
       showPhaseChip('FIN DESCANSO', 'chip-done');
       if (autoPaused) {
