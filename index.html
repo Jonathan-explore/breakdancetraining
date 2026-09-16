@@ -3901,6 +3901,87 @@ body {
   .modal-ex-title { font-size: 15px; }
 }
 
+/* ══ MODO SIMPLE ════════════════════════════════════════════════════════════
+   La app va directa al contador. Se OCULTA (no se borra) todo lo demás para
+   que el JS que escribe en esos elementos siga funcionando sin cambios. */
+.sidebar,
+#day-subtitle, #day-desc, #btn-menu-dia,
+.header-controls, .day-metrics-bar,
+.detail-panel, .keyboard-hint,
+.timer-header-top, #btn-exercise-info,
+.btn-tech-toggle, .technique-panel,
+.btn-day-arrow, .btn-go-today {
+  display: none !important;
+}
+
+.dashboard-header { border-bottom: none; padding-bottom: 0; }
+.dashboard-grid {
+  grid-template-columns: 1fr !important;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.dashboard-header { width: 100%; max-width: 640px; margin: 0 auto; }
+
+/* La lista solo aparece al pulsar "Ver lista" */
+.grid-right-col { display: none; }
+body.list-open .grid-right-col { display: flex; }
+
+#interactive-timer-card { scroll-margin-top: 12px; }
+.day-title-group { cursor: pointer; user-select: none; }
+.day-picker-caret { font-size: 20px; color: var(--text-muted); line-height: 1; }
+
+@media (max-width: 900px) {
+  /* Sin barra inferior: ya no hace falta reservarle hueco */
+  .main-content {
+    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* Selector de día */
+.day-picker-overlay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.day-picker-overlay[hidden] { display: none; }
+.day-picker-sheet {
+  width: 100%; max-width: 480px;
+  background: var(--bg-card);
+  border-radius: 20px 20px 0 0;
+  padding: 18px 16px max(18px, env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 16px;
+}
+.day-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.day-picker-btn {
+  font-family: var(--font-display);
+  font-size: 16px; font-weight: 700;
+  color: var(--text-pure);
+  background: none;
+  border: 1.5px solid var(--border-mid);
+  border-radius: 12px;
+  padding: 12px 8px;
+  cursor: pointer;
+}
+.day-picker-btn.current {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgba(var(--orange-rgb), 0.06);
+}
+.day-picker-btn .today-tag {
+  display: block;
+  font-size: 10px; font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+.day-picker-audio { justify-content: center; }
+.day-picker-actions { display: flex; justify-content: center; gap: 10px; }
+.day-picker-actions .btn-scroll-step { font-size: 13px; padding: 8px 18px; }
+
 </style>
 </head>
 <body>
@@ -4153,8 +4234,9 @@ body {
         <div class="header-day-info">
           <div class="day-nav-row">
             <button class="btn-day-arrow" id="btn-prev-day" onclick="goToPrevDay()" title="Día anterior">‹</button>
-            <div class="day-title-group">
+            <div class="day-title-group" onclick="openDayPicker()" role="button" tabindex="0" title="Cambiar de día">
               <h1 id="day-title">Lunes</h1>
+              <span class="day-picker-caret">▾</span>
               <button class="btn-go-today" id="btn-go-today" onclick="goToToday()" style="display:none">Ir a hoy</button>
             </div>
             <button class="btn-day-arrow" id="btn-next-day" onclick="goToNextDay()" title="Día siguiente">›</button>
@@ -4169,19 +4251,7 @@ body {
         </div>
 
         <div class="header-controls">
-          <!-- Control de Alertas Sonoras y Voz -->
-          <div class="audio-controls-panel">
-            <label class="switch-container" title="Activa pitidos de aviso al finalizar el tiempo">
-              <input type="checkbox" id="toggle-sound" checked>
-              <span class="switch-slider"></span>
-              <span class="switch-label">🔊 Pitidos</span>
-            </label>
-            <label class="switch-container" title="Activa lectura de voz del nombre de cada ejercicio">
-              <input type="checkbox" id="toggle-voice" checked>
-              <span class="switch-slider"></span>
-              <span class="switch-label">🗣️ Voz</span>
-            </label>
-          </div>
+          <!-- Pitidos/Voz se movieron al selector de día (modo simple) -->
 
           <!-- Barra de Progreso del Día -->
           <div class="progress-container">
@@ -4232,11 +4302,11 @@ body {
                 <span class="step-counter-badge" id="step-counter-badge"></span>
               </div>
               <div class="timer-name-row">
-                <h3 id="timer-ex-name">Selecciona un ejercicio</h3>
+                <h3 id="timer-ex-name"></h3>
                 <button class="btn-exercise-info" id="btn-exercise-info" onclick="openExerciseInfoModal()" title="Ver información del ejercicio" style="display:none">ℹ</button>
                 <button class="btn-timer-cam" id="btn-timer-cam" onclick="openCameraFromTimer()" title="Grabar ejercicio">📹</button>
               </div>
-              <p id="timer-ex-target" class="text-secondary">Pulsa ▶ en cualquier paso para iniciar la secuencia automática</p>
+              <p id="timer-ex-target" class="text-secondary"></p>
             </div>
 
             <!-- Chip de fase -->
@@ -4264,7 +4334,7 @@ body {
               <!-- Empty state cuando no hay paso seleccionado -->
               <div class="timer-empty-state" id="timer-empty-state">
                 <div class="empty-state-icon">▶</div>
-                <p class="empty-state-text">Pulsa <strong>▶</strong> en cualquier ejercicio<br>para iniciar la secuencia automática</p>
+                <p class="empty-state-text">Pulsa <strong>Iniciar</strong></p>
               </div>
 
               <!-- Temporizador MM:SS normal -->
@@ -4298,8 +4368,8 @@ body {
             </div>
 
             <!-- Ir al paso activo en la lista -->
-            <div class="scroll-to-step-row" id="scroll-to-step-row" style="display:none">
-              <button class="btn-scroll-step" onclick="scrollToActiveStep()">📍 Ver en lista</button>
+            <div class="scroll-to-step-row" id="scroll-to-step-row" style="display:flex">
+              <button class="btn-scroll-step" id="btn-toggle-list" onclick="toggleStepList()">📋 Ver lista</button>
             </div>
 
             <!-- Botón LISTO para pasos de series/reps -->
@@ -4432,6 +4502,29 @@ body {
       <div class="menu-dia-summary" id="menu-dia-summary"></div>
       <div class="modal-body">
         <div class="menu-dia-list" id="menu-dia-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELECTOR DE DÍA (sustituye a la barra inferior y al swipe) -->
+  <div class="day-picker-overlay" id="day-picker-overlay" hidden onclick="if (event.target === this) closeDayPicker()">
+    <div class="day-picker-sheet" role="dialog" aria-modal="true" aria-label="Cambiar de día">
+      <div class="day-picker-grid" id="day-picker-grid"></div>
+      <div class="audio-controls-panel day-picker-audio">
+        <label class="switch-container" title="Activa pitidos de aviso al finalizar el tiempo">
+          <input type="checkbox" id="toggle-sound" checked>
+          <span class="switch-slider"></span>
+          <span class="switch-label">🔊 Pitidos</span>
+        </label>
+        <label class="switch-container" title="Activa lectura de voz del nombre de cada ejercicio">
+          <input type="checkbox" id="toggle-voice" checked>
+          <span class="switch-slider"></span>
+          <span class="switch-label">🗣️ Voz</span>
+        </label>
+      </div>
+      <div class="day-picker-actions">
+        <button class="btn-scroll-step" onclick="closeDayPicker(); openDataPanel()">💾 Datos</button>
+        <button class="btn-scroll-step" onclick="closeDayPicker()">Cerrar</button>
       </div>
     </div>
   </div>
@@ -5668,7 +5761,9 @@ function getTodayDayKey() {
   const map = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
   return map[new Date().getDay()];
 }
-let currentDayKey = localStorage.getItem('airflare_last_day_v1') || getTodayDayKey();
+// Siempre se abre en el día de hoy; para otro día, usar el selector (▾).
+let currentDayKey = getTodayDayKey();
+let _lastSeenTodayKey = currentDayKey; // para detectar cambio de fecha al volver de segundo plano
 let activeExerciseIndex = 0;
 let activeStepIndex = -1; // -1 = ningún paso seleccionado
 
@@ -5765,6 +5860,13 @@ function checkWeeklyReset() {
 // seguiría visible al abrir la app en una semana nueva (el bug que el usuario
 // veía "cada vez que entro"). Se llama desde visibilitychange y pageshow.
 function refreshAfterResume() {
+  // Si cambió la fecha mientras la app estaba en segundo plano, abrir el día
+  // de hoy (salvo que haya una secuencia en marcha o pausada).
+  const todayKey = getTodayDayKey();
+  if (todayKey !== _lastSeenTodayKey) {
+    _lastSeenTodayKey = todayKey;
+    if (!autoMode && !autoPaused) goToDay(todayKey);
+  }
   autoArchiveStaleData();             // preservar en historial lo de la semana previa
   if (checkWeeklyReset()) {           // ¿cambió la semana? → limpiar y re-renderizar
     renderDay(currentDayKey);
@@ -5838,9 +5940,7 @@ window.addEventListener('DOMContentLoaded', () => {
           if (timerSecondsLeft <= 0) {
             // El descanso expiró en background: replicar el fin de descanso
             // SIN marcar ningún paso como completado (a diferencia de un 'step').
-            playChangeSound();
-            showPhaseChip('FIN DESCANSO', 'chip-done');
-            advanceTimeout = setTimeout(() => autoAdvanceToNext(false), 1100);
+            onRestTimerComplete();
           } else {
             resumeAuto();
           }
@@ -5983,8 +6083,45 @@ function setupTabs() {
     });
   });
 
-  // Swipe táctil: deslizar izquierda/derecha en el contenido principal
-  setupDaySwipe();
+  // Swipe entre días DESACTIVADO: cambiaba de día sin querer al hacer scroll.
+  // Para cambiar de día se usa el selector (openDayPicker).
+}
+
+function openDayPicker() {
+  const grid = document.getElementById('day-picker-grid');
+  const todayKey = getTodayDayKey();
+  grid.innerHTML = DAY_ORDER.map(k => `
+    <button class="day-picker-btn${k === currentDayKey ? ' current' : ''}" onclick="pickDay('${k}')">
+      ${ROUTINE_DATA[k].title}${k === todayKey ? '<span class="today-tag">HOY</span>' : ''}
+    </button>`).join('');
+  document.getElementById('day-picker-overlay').hidden = false;
+}
+
+function closeDayPicker() {
+  document.getElementById('day-picker-overlay').hidden = true;
+}
+
+function pickDay(key) {
+  closeDayPicker();
+  goToDay(key);
+}
+
+// "Ver lista": muestra/oculta el cronograma y lleva al paso activo
+function toggleStepList() {
+  const open = document.body.classList.toggle('list-open');
+  const btn = document.getElementById('btn-toggle-list');
+  if (btn) btn.textContent = open ? '✕ Ocultar lista' : '📋 Ver lista';
+  if (!open) return;
+
+  const ex = ROUTINE_DATA[currentDayKey]?.exercises[activeExerciseIndex];
+  if (ex) {
+    expandCategory(getPhaseCategory(ex.block).toLowerCase().replace(/-/g, ''));
+    const groupKey = `${currentDayKey}_${activeExerciseIndex}`;
+    if (collapsedState[groupKey]) toggleGroupCollapse(currentDayKey, activeExerciseIndex, groupKey);
+  }
+  const target = document.querySelector('.step-row.step-active') ||
+                 document.querySelectorAll('.exercise-group-header')[activeExerciseIndex];
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function setupDaySwipe() {
@@ -6335,7 +6472,7 @@ function selectExerciseDetail(exIdx) {
   activeStepIndex = -1;
 
   document.getElementById('timer-ex-name').innerText = ex.name;
-  document.getElementById('timer-ex-target').innerText = 'Pulsa ▶ en un paso para iniciar la secuencia';
+  document.getElementById('timer-ex-target').innerText = '';
   document.getElementById('step-counter-badge').textContent = '';
   updateDetailPanel(ex);
 
@@ -6347,6 +6484,19 @@ function selectExerciseDetail(exIdx) {
 // Seleccionar y reproducir directamente — inicia la secuencia auto
 function selectAndPlayStep(exIdx, stepIdx) {
   startAutoFromStep(exIdx, stepIdx);
+  // Al pulsar ▶ en la lista, llevar al usuario al contador (menú rápido).
+  // Solo en este inicio manual: los avances automáticos de la secuencia no
+  // mueven el viewport (ver commit b91970e, rendimiento en gama baja).
+  scrollToTimerCard();
+}
+
+function scrollToTimerCard() {
+  const card = document.getElementById('interactive-timer-card');
+  if (!card) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // scrollIntoView sirve tanto en móvil (scroll de la ventana) como en pantallas
+  // >900px, donde el que hace scroll es .main-content. Margen: scroll-margin-top.
+  card.scrollIntoView({ block: 'start', behavior: reduce ? 'instant' : 'smooth' });
 }
 
 // Actualizar el badge "paso X / Y"
@@ -6689,7 +6839,8 @@ function showTimerDisplay(show) {
 
 // Mostrar/ocultar botón "Ver en lista"
 function setScrollBtnVisible(visible) {
-  _setDisplay('scroll-to-step-row', visible ? 'flex' : 'none');
+  // Modo simple: "Ver lista" está siempre disponible (es la guía rápida)
+  _setDisplay('scroll-to-step-row', 'flex');
 }
 
 // =============================================================================
@@ -6821,6 +6972,12 @@ function setupKeyboardShortcuts() {
     if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
     if (e.target.isContentEditable) return;
 
+    // Con el selector de día abierto, los atajos no deben tocar el contador
+    if (!document.getElementById('day-picker-overlay').hidden) {
+      if (e.code === 'Escape') { e.preventDefault(); closeDayPicker(); }
+      return;
+    }
+
     switch (e.code) {
       case 'Space':
         e.preventDefault();
@@ -6847,18 +7004,19 @@ function setupKeyboardShortcuts() {
 function handleSkipBtn() {
   if (currentPhase === 'transition') {
     // Skip the rest of the transition → start the queued step immediately
-    clearInterval(transitionInterval); transitionInterval = null;
-    hideTransitionUI();
     autoMode = true; autoPaused = false;
+    setPlayBtn('pause');
     processAutoStep(autoExIdx, autoStepIdx);
     return;
   }
   if (autoMode || autoPaused) {
-    stopCurrentIntervals();
-    clearTimeout(goTimeout);
-    clearTimeout(advanceTimeout);
+    clearAutoSchedule();
+    // Saltar cuenta como hecho el paso en curso. En 'advancing' ya se marcó y en
+    // 'queued' el índice apunta al descanso siguiente, que no se marca.
+    if (['prep', 'go', 'step', 'reps'].includes(currentPhase)) markCurrentStepDone();
     autoPaused = false;
     autoMode = true;
+    setPlayBtn('pause');
     autoAdvanceToNext(true);
   }
 }
@@ -6867,9 +7025,7 @@ function handleSkipBtn() {
 // INICIO DE SECUENCIA AUTOMÁTICA
 // =============================================================================
 function startAutoFromStep(exIdx, stepIdx) {
-  stopCurrentIntervals();
-  clearTimeout(goTimeout);
-  clearTimeout(advanceTimeout);
+  clearAutoSchedule();
   autoMode   = true;
   autoPaused = false;
   autoExIdx  = exIdx;
@@ -6888,6 +7044,15 @@ function processAutoStep(exIdx, stepIdx) {
   const step = ex.steps[stepIdx];
   autoExIdx  = exIdx;
   autoStepIdx = stepIdx;
+
+  // Una sola cadena de temporizadores: cancelar cualquier intervalo/timeout
+  // pendiente y limpiar la UI de la fase anterior antes de arrancar este paso.
+  // Sin esto, dos cadenas podían quedar vivas a la vez (contador doble,
+  // descanso y ejercicio alternándose en bucle hasta cerrar la app).
+  clearAutoSchedule();
+  hideTransitionUI();
+  hideGoFlash();
+  showRepsDoneBtn(false);
 
   // Guardar posición de scroll antes de expandir secciones
   const savedScrollY = window.scrollY || window.pageYOffset;
@@ -6974,6 +7139,7 @@ function runStepPhase(duration) {
 }
 
 function onStepTimerComplete() {
+  currentPhase = 'advancing'; // si se pausa en esta ventana, reanudar avanza
   playChangeSound();
   showPhaseChip('CAMBIO', 'chip-done');
   markCurrentStepDone();
@@ -6998,11 +7164,16 @@ function runRestStep(duration) {
     if (timerSecondsLeft <= 3 && timerSecondsLeft > 0) playLastSeconds();
     if (timerSecondsLeft <= 0) {
       clearInterval(timerInterval); timerInterval = null;
-      playChangeSound();
-      showPhaseChip('FIN DESCANSO', 'chip-done');
-      advanceTimeout = setTimeout(() => autoAdvanceToNext(false), 1100);
+      onRestTimerComplete();
     }
   }, 1000);
+}
+
+function onRestTimerComplete() {
+  currentPhase = 'advancing';
+  playChangeSound();
+  showPhaseChip('FIN DESCANSO', 'chip-done');
+  advanceTimeout = setTimeout(() => autoAdvanceToNext(false), 1100);
 }
 
 // =============================================================================
@@ -7023,6 +7194,15 @@ function runRepsStep(step) {
 }
 
 function markRepsDoneAndAdvance() {
+  // Solo válido mientras la fase de reps está corriendo: evita que un doble
+  // toque o un botón LISTO residual programe una segunda cadena de avance.
+  // Si la secuencia estaba pausada en reps, LISTO la reanuda.
+  if (currentPhase !== 'reps' || (!autoMode && !autoPaused)) return;
+  if (autoPaused) {
+    autoMode = true; autoPaused = false;
+    setPlayBtn('pause');
+    _acquireWakeLock();
+  }
   markCurrentStepDone();
   showRepsDoneBtn(false);
   playChangeSound();
@@ -7036,9 +7216,10 @@ function markRepsDoneAndAdvance() {
   if (nextStep?.type === 'rest') {
     showPhaseChip('💤 DESCANSANDO…', 'chip-rest');
     autoStepIdx = nextStepIdx;
-    autoMode = true; autoPaused = false;
+    currentPhase = 'queued'; // reanudar tras pausa → arrancar el descanso
     advanceTimeout = setTimeout(() => processAutoStep(autoExIdx, autoStepIdx), 500);
   } else {
+    currentPhase = 'advancing';
     showPhaseChip('✓ COMPLETADO', 'chip-done');
     advanceTimeout = setTimeout(() => autoAdvanceToNext(false), 600);
   }
@@ -7084,7 +7265,7 @@ function autoAdvanceToNext(isSkip) {
         if (!autoMode) {
           selectExerciseDetail(nextExIdx);
           document.getElementById('timer-ex-target').innerText =
-            'Pulsa ▶ para continuar con el siguiente ejercicio';
+            'Pulsa Iniciar para continuar';
 
           // Expandir la categoría del siguiente ejercicio si está colapsada
           const nextEx = data.exercises[nextExIdx];
@@ -7142,6 +7323,8 @@ function getTransitionDuration(fromExIdx, fromStepIdx, toExIdx, toStepIdx) {
 }
 
 function runTransitionPhase(nextExIdx, nextStepIdx) {
+  clearAutoSchedule();
+  showRepsDoneBtn(false);
   const duration = getTransitionDuration(autoExIdx, autoStepIdx, nextExIdx, nextStepIdx);
 
   // Actualizar índices ANTES de la transición para que skip funcione
@@ -7176,9 +7359,7 @@ function runTransitionPhase(nextExIdx, nextStepIdx) {
 // PAUSA / REANUDA / STOP
 // =============================================================================
 function pauseAuto() {
-  stopCurrentIntervals();
-  clearTimeout(goTimeout);
-  clearTimeout(advanceTimeout);
+  clearAutoSchedule();
   autoPaused = true;
   autoMode   = false;
   _releaseWakeLock();
@@ -7187,14 +7368,19 @@ function pauseAuto() {
 }
 
 function resumeAuto() {
+  // Cancela también un descanso rápido manual que siga corriendo: si no,
+  // su intervalo y el del paso reanudado pintarían el contador a la vez.
+  clearAutoSchedule();
   autoPaused = false;
   autoMode   = true;
   setPlayBtn('pause');
+  _acquireWakeLock();
 
   switch (currentPhase) {
     case 'prep':       resumePrepPhase(); break;
     case 'step':       resumeStepPhase(); break;
     case 'rest':       resumeRestPhase(); break;
+    case 'advancing':  autoAdvanceToNext(false); break; // el paso ya terminó
     case 'transition': processAutoStep(autoExIdx, autoStepIdx); break; // skip remaining transition
     case 'reps':
       showRepsDoneBtn(true);
@@ -7242,17 +7428,13 @@ function resumeRestPhase() {
     if (timerSecondsLeft <= 3 && timerSecondsLeft > 0) playLastSeconds();
     if (timerSecondsLeft <= 0) {
       clearInterval(timerInterval); timerInterval = null;
-      playChangeSound();
-      showPhaseChip('FIN DESCANSO', 'chip-done');
-      advanceTimeout = setTimeout(() => autoAdvanceToNext(false), 1100);
+      onRestTimerComplete();
     }
   }, 1000);
 }
 
 function stopAuto() {
-  stopCurrentIntervals();
-  clearTimeout(goTimeout);
-  clearTimeout(advanceTimeout);
+  clearAutoSchedule();
   autoMode    = false;
   autoPaused  = false;
   currentPhase = 'idle';
@@ -7286,6 +7468,17 @@ function stopCurrentIntervals() {
   clearInterval(restTimerInterval);
   clearInterval(transitionInterval);
   prepInterval = timerInterval = restTimerInterval = transitionInterval = null;
+}
+
+// Cancela TODO lo programado por la secuencia (intervalos + timeouts) y el
+// descanso rápido manual. Llamar antes de arrancar/reanudar cualquier fase.
+function clearAutoSchedule() {
+  if (restTimerInterval) {
+    document.querySelectorAll('.btn-rest').forEach(b => b.classList.remove('active-rest'));
+  }
+  stopCurrentIntervals();
+  clearTimeout(goTimeout);      goTimeout = null;
+  clearTimeout(advanceTimeout); advanceTimeout = null;
 }
 
 // =============================================================================
