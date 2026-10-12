@@ -10,7 +10,8 @@
 //     IMPORTANTE: subir CACHE_NAME en CADA cambio de index.html, o el móvil
 //     sigue arrancando con el HTML viejo guardado en caché.
 // v6: sábado nuevo (mantenimiento activo: fuerza de flare + flex, 1 h).
-const CACHE_NAME = 'airflare-v6';
+// v7: pantalla de mentalidad al abrir (una vez al día).
+const CACHE_NAME = 'airflare-v7';
 
 // Archivos que se pre-cachean (recursos estáticos que raramente cambian).
 // Incluimos el HTML principal para que el primer arranque ya quede offline-ready.

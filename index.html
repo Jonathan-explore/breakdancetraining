@@ -4037,6 +4037,108 @@ body.water-on .timer-section.glass-card { background-color: rgba(255, 255, 255, 
   .water-body { transition: none; }
 }
 
+/* ══ MENTALIDAD ═════════════════════════════════════════════════════════════
+   Pantalla de enfoque antes de entrenar: sale sola la primera vez que se abre
+   la app cada día. Se cierra MANTENIENDO pulsado (no con un toque) para obligar
+   a parar un momento y leerla, en vez de descartarla por reflejo. El texto es
+   siempre el mismo a propósito: es un mantra, se interioriza por repetición. */
+.mindset-overlay {
+  position: fixed; inset: 0; z-index: 1300;
+  background: var(--bg-void);
+  overflow-y: auto;
+  display: flex;
+  padding: max(28px, env(safe-area-inset-top, 0px)) 24px max(28px, env(safe-area-inset-bottom, 0px));
+}
+.mindset-overlay[hidden] { display: none; }
+.mindset-inner {
+  width: 100%; max-width: 440px;
+  margin: auto;                           /* centra y deja hacer scroll si no cabe */
+  display: flex; flex-direction: column; gap: 28px;
+}
+/* Los bloques entran uno tras otro, en orden de lectura */
+.mindset-inner > * { animation: mindsetIn 0.6s var(--ease-out) both; }
+.mindset-inner > :nth-child(2) { animation-delay: 0.15s; }
+.mindset-inner > :nth-child(3) { animation-delay: 0.75s; }
+.mindset-inner > :nth-child(4) { animation-delay: 1.35s; }
+.mindset-inner > :nth-child(5) { animation-delay: 1.75s; }
+@keyframes mindsetIn {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+.mindset-eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.mindset-block {
+  display: flex; flex-direction: column; gap: 8px;
+  padding-left: 16px;
+  border-left: 3px solid var(--orange);
+}
+.mindset-title {
+  font-family: var(--font-display);
+  font-size: 30px; font-weight: 800; line-height: 1.1;
+  letter-spacing: -0.5px;
+  color: var(--text-pure);
+}
+.mindset-lead {
+  font-family: var(--font-display);
+  font-size: 18px; font-weight: 600; line-height: 1.3;
+  color: var(--orange);
+}
+.mindset-text {
+  font-size: 15px; line-height: 1.55;
+  color: var(--text-secondary);
+}
+.mindset-proof {
+  font-family: var(--font-display);
+  font-size: 15px; font-weight: 600;
+  color: var(--text-primary);
+  padding-top: 18px;
+  border-top: 1px solid var(--border-mid);
+}
+.mindset-commit { display: flex; flex-direction: column; gap: 10px; }
+.mindset-today {
+  font-size: 13px; font-weight: 500;
+  color: var(--text-muted);
+  text-align: center;
+}
+.mindset-hold {
+  position: relative; overflow: hidden;
+  width: 100%; min-height: 62px;
+  border: none; border-radius: var(--radius-md);
+  background: var(--text-pure);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 16px; font-weight: 700; letter-spacing: 0.3px;
+  cursor: pointer;
+  touch-action: none;                     /* mantener pulsado no debe hacer scroll */
+  user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.mindset-hold:focus-visible { outline: 3px solid rgba(var(--orange-rgb), 0.5); outline-offset: 3px; }
+.mindset-hold-fill {
+  position: absolute; inset: 0;
+  background: var(--orange);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.25s ease-out;   /* al soltar antes de tiempo, se vacía */
+}
+.mindset-hold.holding .mindset-hold-fill {
+  transform: scaleX(1);
+  transition: transform 1.5s linear;      /* = MINDSET_HOLD_MS */
+}
+.mindset-hold.done .mindset-hold-fill { transform: scaleX(1); transition: none; background: var(--green); }
+.mindset-hold-label { position: relative; pointer-events: none; }
+
+@media (max-height: 640px) {
+  .mindset-inner { gap: 20px; }
+  .mindset-title { font-size: 25px; }
+  .mindset-lead  { font-size: 16px; }
+  .mindset-text  { font-size: 14px; }
+}
+
 </style>
 </head>
 <body>
@@ -4587,8 +4689,39 @@ body.water-on .timer-section.glass-card { background-color: rgba(255, 255, 255, 
         </label>
       </div>
       <div class="day-picker-actions">
+        <button class="btn-scroll-step" onclick="closeDayPicker(); openMindset()">🧠 Mentalidad</button>
         <button class="btn-scroll-step" onclick="closeDayPicker(); openDataPanel()">💾 Datos</button>
         <button class="btn-scroll-step" onclick="closeDayPicker()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MENTALIDAD: pantalla de enfoque, una vez al día al abrir (ver maybeShowMindset) -->
+  <div class="mindset-overlay" id="mindset-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="mindset-title-1">
+    <div class="mindset-inner">
+      <p class="mindset-eyebrow">Antes de empezar</p>
+
+      <section class="mindset-block">
+        <h2 class="mindset-title" id="mindset-title-1">Se trata de mí.</h2>
+        <p class="mindset-lead">De mi performance, no del resultado.</p>
+        <p class="mindset-text">Da igual la situación. Da igual si hoy sale peor. Lo importante es hacerlo yo lo mejor posible.</p>
+        <p class="mindset-text">Entreno, competición o examen: no me comparo. Mejoro yo.</p>
+      </section>
+
+      <section class="mindset-block">
+        <h2 class="mindset-title">Un día menos.</h2>
+        <p class="mindset-lead">Si hoy cumplo, es un día menos para llegar a mi objetivo.</p>
+        <p class="mindset-text">Aunque esté cansado.<br>Aunque tenga problemas.<br>Aunque haga mal tiempo.</p>
+      </section>
+
+      <p class="mindset-proof">Así pasé de Oro a Master en meses.</p>
+
+      <div class="mindset-commit">
+        <p class="mindset-today" id="mindset-today"></p>
+        <button class="mindset-hold" id="mindset-hold" type="button">
+          <span class="mindset-hold-fill" aria-hidden="true"></span>
+          <span class="mindset-hold-label" id="mindset-hold-label">Mantén pulsado · Hoy cumplo</span>
+        </button>
       </div>
     </div>
   </div>
@@ -6006,6 +6139,7 @@ function refreshAfterResume() {
     syncCheckboxesFromStorage();      // misma semana: solo re-sincronizar checkboxes
   }
   updateTodayIndicators();            // el día también pudo cambiar (cruce de medianoche)
+  maybeShowMindset();                 // primera vez que se abre hoy → pantalla de enfoque
 }
 
 // =============================================================================
@@ -6025,6 +6159,8 @@ window.addEventListener('DOMContentLoaded', () => {
   checkWeeklyReset();    // resetear progreso si cambió la semana
   renderDay(currentDayKey);
   updateAllDayMiniBars();
+  setupMindset();
+  maybeShowMindset();    // enfoque del día, antes de tocar nada
   if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
 
   // Auto-guardar al salir o cuando la app va a segundo plano
@@ -6235,6 +6371,90 @@ function closeDayPicker() {
 function pickDay(key) {
   closeDayPicker();
   goToDay(key);
+}
+
+// =============================================================================
+// MENTALIDAD — pantalla de enfoque antes de entrenar
+// Sale sola la primera vez que se abre la app cada día; después se puede volver
+// a abrir desde el selector de día (🧠 Mentalidad).
+// =============================================================================
+const MINDSET_SEEN_KEY = 'airflare_mindset_seen_v1'; // fecha local (YYYY-MM-DD) de la última vez
+const MINDSET_HOLD_MS  = 1500;                       // = transición de .mindset-hold.holding
+const MINDSET_HOLD_LABEL = 'Mantén pulsado · Hoy cumplo';
+let _mindsetHoldTimer = null;
+
+function isMindsetOpen() {
+  return !document.getElementById('mindset-overlay').hidden;
+}
+
+function openMindset() {
+  const today = ROUTINE_DATA[getTodayDayKey()];
+  document.getElementById('mindset-today').textContent = `Hoy · ${today.title}: ${today.subtitle}`;
+  _resetMindsetHold();
+  const overlay = document.getElementById('mindset-overlay');
+  overlay.hidden = false;
+  overlay.scrollTop = 0;
+  document.getElementById('mindset-hold').focus({ preventScroll: true });
+}
+
+function closeMindset() {
+  document.getElementById('mindset-overlay').hidden = true;
+  try { localStorage.setItem(MINDSET_SEEN_KEY, getLocalDateStr()); } catch (e) { /* cuota llena */ }
+}
+
+// Solo la primera apertura del día, y nunca encima de una secuencia en marcha
+function maybeShowMindset() {
+  if (isMindsetOpen() || autoMode || autoPaused) return;
+  if (localStorage.getItem(MINDSET_SEEN_KEY) === getLocalDateStr()) return;
+  openMindset();
+}
+
+function _startMindsetHold() {
+  const btn = document.getElementById('mindset-hold');
+  if (_mindsetHoldTimer || btn.classList.contains('done')) return;
+  btn.classList.add('holding');
+  _mindsetHoldTimer = setTimeout(_completeMindsetHold, MINDSET_HOLD_MS);
+}
+
+// Soltar antes de tiempo: no cuenta, la barra se vacía
+function _cancelMindsetHold() {
+  if (!_mindsetHoldTimer) return;
+  clearTimeout(_mindsetHoldTimer);
+  _mindsetHoldTimer = null;
+  document.getElementById('mindset-hold').classList.remove('holding');
+}
+
+function _resetMindsetHold() {
+  clearTimeout(_mindsetHoldTimer);
+  _mindsetHoldTimer = null;
+  document.getElementById('mindset-hold').classList.remove('holding', 'done');
+  document.getElementById('mindset-hold-label').textContent = MINDSET_HOLD_LABEL;
+}
+
+function _completeMindsetHold() {
+  _mindsetHoldTimer = null;
+  const btn = document.getElementById('mindset-hold');
+  btn.classList.remove('holding');
+  btn.classList.add('done');
+  document.getElementById('mindset-hold-label').textContent = 'Vamos.';
+  if (navigator.vibrate) navigator.vibrate(30);
+  setTimeout(closeMindset, 500);
+}
+
+function setupMindset() {
+  const btn = document.getElementById('mindset-hold');
+  btn.addEventListener('pointerdown', _startMindsetHold);
+  ['pointerup', 'pointerleave', 'pointercancel', 'blur'].forEach(ev => btn.addEventListener(ev, _cancelMindsetHold));
+  btn.addEventListener('contextmenu', e => e.preventDefault()); // pulsación larga en móvil
+  // Teclado: mantener Enter o Espacio
+  btn.addEventListener('keydown', e => {
+    if (e.code !== 'Enter' && e.code !== 'Space') return;
+    e.preventDefault();
+    if (!e.repeat) _startMindsetHold();
+  });
+  btn.addEventListener('keyup', e => {
+    if (e.code === 'Enter' || e.code === 'Space') _cancelMindsetHold();
+  });
 }
 
 // "Ver lista": muestra/oculta el cronograma y lleva al paso activo
@@ -7102,6 +7322,9 @@ function setupKeyboardShortcuts() {
     // No activar si el foco está en textarea/input
     if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
     if (e.target.isContentEditable) return;
+
+    // Con la pantalla de mentalidad abierta, el teclado solo sirve a su botón
+    if (isMindsetOpen()) return;
 
     // Con el selector de día abierto, los atajos no deben tocar el contador
     if (!document.getElementById('day-picker-overlay').hidden) {
@@ -8057,7 +8280,7 @@ function saveSession() {
   sessionHistory.push(session);
   try {
     localStorage.setItem('airflare_history_v1', JSON.stringify(sessionHistory));
-    showToast(`Sesión de ${dayData.title} guardada ✓`);
+    showToast(`Sesión de ${dayData.title} guardada ✓ · Un día menos`);
   } catch (e) {
     sessionHistory.pop();
     showToast('Error: almacenamiento lleno. Exporta y borra el historial.', 'error');
